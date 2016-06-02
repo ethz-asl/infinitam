@@ -18,5 +18,7 @@ NVTimer.h
 
 IF(PNG_FOUND)
   target_link_libraries(Utils ${PNG_LIBRARIES})
+  IF(WITH_CUDA)
+    target_link_libraries(Utils ${CUDA_LIBRARIES})
+  ENDIF()
 ENDIF()
-

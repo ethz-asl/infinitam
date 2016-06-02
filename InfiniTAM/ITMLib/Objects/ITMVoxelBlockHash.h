@@ -27,7 +27,9 @@ namespace ITMLib
 			struct IndexCache {
 				Vector3i blockPos;
 				int blockPtr;
-				_CPU_AND_GPU_CODE_ IndexCache(void) : blockPos(0x7fffffff), blockPtr(-1) {}
+				// _CPU_AND_GPU_CODE_ IndexCache(void) : blockPos(0x7fffffff), blockPtr(-1) {}
+        _CPU_AND_GPU_CODE_ IndexCache(void) : blockPos(0x7fffffff), blockPtr(-1) {}
+
 			};
 
 			/** Maximum number of total entries. */
@@ -47,7 +49,7 @@ namespace ITMLib
 			overflow.
 			*/
 			ORUtils::MemoryBlock<int> *excessAllocationList;
-        
+
 			MemoryDeviceType memoryType;
 
 		public:

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-project(InfiniTAM)
+project(infinitam)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
@@ -18,9 +18,11 @@ find_package(CUDA QUIET)
 CANONIFY_BOOL(CUDA_FOUND)
 message(STATUS "CUDA found: " ${CUDA_FOUND})
 
-find_package(OpenNI QUIET)
-CANONIFY_BOOL(OPENNI_FOUND)
-message(STATUS "OpenNI found: " ${OPENNI_FOUND})
+
+set(OPENNI_FOUND FALSE)
+# find_package(OpenNI2 QUIET)
+# CANONIFY_BOOL(OPENNI2_FOUND)
+# message(STATUS "OpenNI2 found: " ${OPENNI2_FOUND})
 
 find_package(libuvc QUIET)
 CANONIFY_BOOL(libuvc_FOUND)
@@ -34,9 +36,12 @@ find_package(PNG QUIET)
 CANONIFY_BOOL(PNG_FOUND)
 message(STATUS "libpng found: ${PNG_FOUND}")
 
+
 OPTION(WITH_CUDA "Build with CUDA support?" ${CUDA_FOUND})
 INCLUDE(${PROJECT_SOURCE_DIR}/cmake/UseOpenMP.cmake)
 OPTION(WITH_REALSENSE "Build with Intel RealSense support?" ${REALSENSE_FOUND})
+
+OPTION(WITH_ROS "Build with ROS support?" TRUE)
 
 IF(MSVC_IDE)
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
@@ -52,14 +57,16 @@ if(APPLE)
 endif(APPLE)
 
 IF("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++ -Wno-deprecated-declarations -Wno-unused-function")
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libstdc++")
+  # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++ -Wno-deprecated-declarations -Wno-unused-function")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations -Wno-unused-function")
+  # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+  # set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libstdc++")
 ENDIF()
 
+
 add_subdirectory(ORUtils)
-add_subdirectory(ITMLib)
 add_subdirectory(Utils)
-add_subdirectory(Engine)
+add_subdirectory(ITMLib)
 
 IF(WITH_CUDA)
   include_directories(${CUDA_INCLUDE_DIRS})
@@ -67,10 +74,49 @@ ELSE()
   add_definitions(-DCOMPILE_WITHOUT_CUDA)
 ENDIF()
 
+# find_package(catkin QUIET)
+# CANONIFY_BOOL(ROS_FOUND)
+# message(STATUS "ROS found: ${ROS_FOUND}")
+
+find_package(catkin REQUIRED COMPONENTS
+  dynamic_reconfigure
+  genmsg
+  pcl_conversions
+  pcl_ros
+  roscpp
+  sensor_msgs
+)
+
+find_package(PCL REQUIRED)
+
+catkin_package()
+include_directories(
+  # include
+  ${catkin_INCLUDE_DIRS}
+  ${PCL_INCLUDE_DIRS}
+)
+
+
+add_subdirectory(Engine)
+
 add_executable(InfiniTAM_cli InfiniTAM_cli.cpp)
 target_link_libraries(InfiniTAM_cli Engine)
 target_link_libraries(InfiniTAM_cli Utils)
+IF(WITH_CUDA)
+  target_link_libraries(InfiniTAM_cli ${CUDA_LIBRARIES})
+ENDIF()
 add_executable(InfiniTAM InfiniTAM.cpp)
 target_link_libraries(InfiniTAM Engine)
 target_link_libraries(InfiniTAM Utils)
+IF(WITH_CUDA)
+  target_link_libraries(InfiniTAM ${CUDA_LIBRARIES})
+ENDIF()
 
+add_executable(InfiniTAM_node InfiniTAM_node.cpp)
+target_link_libraries(InfiniTAM_node Engine)
+target_link_libraries(InfiniTAM_node Utils)
+IF(WITH_CUDA)
+  target_link_libraries(InfiniTAM_node ${CUDA_LIBRARIES} ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+ELSE()
+target_link_libraries(InfiniTAM_node ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+ENDIF()

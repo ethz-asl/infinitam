@@ -2,13 +2,16 @@
 
 #include <cstdlib>
 
-#include "Engine/ImageSourceEngine.h"
-#include "Engine/UIEngine.h"
+#include <ros/ros.h>
+#include <sensor_msgs/Image.h>
 
+#include "Engine/ImageSourceEngine.h"
 #include "Engine/Kinect2Engine.h"
 #include "Engine/LibUVCEngine.h"
 #include "Engine/OpenNIEngine.h"
 #include "Engine/RealSenseEngine.h"
+#include "Engine/RosEngine.h"
+#include "Engine/UIEngine.h"
 
 using namespace InfiniTAM::Engine;
 
@@ -18,7 +21,11 @@ using namespace InfiniTAM::Engine;
     @para arg4 the IMU images. If images are omitted, some live sources will
     be tried.
 */
-static void CreateDefaultImageSource(ImageSourceEngine *&imageSource,
+ros::Subscriber rgb_sub_;
+ros::Subscriber depth_sub_;
+
+static void CreateDefaultImageSource(ros::NodeHandle *node_handle,
+                                     ImageSourceEngine *&imageSource,
                                      IMUSourceEngine *&imuSource,
                                      const char *arg1, const char *arg2,
                                      const char *arg3, const char *arg4) {
@@ -59,17 +66,37 @@ static void CreateDefaultImageSource(ImageSourceEngine *&imageSource,
       imageSource = NULL;
     }
   }
+  // if (imageSource == NULL) {
+  //   printf("trying RealSense device\n");
+  //   imageSource = new RealSenseEngine(calibFile);
+  //   if (imageSource->getDepthImageSize().x == 0) {
+  //     delete imageSource;
+  //     imageSource = NULL;
+  //   }
+  // }
   if (imageSource == NULL) {
-    printf("trying RealSense device\n");
-    imageSource = new RealSenseEngine(calibFile);
+    printf("trying MS Kinect 2 device\n");
+    imageSource = new Kinect2Engine(calibFile);
     if (imageSource->getDepthImageSize().x == 0) {
       delete imageSource;
       imageSource = NULL;
     }
   }
   if (imageSource == NULL) {
-    printf("trying MS Kinect 2 device\n");
-    imageSource = new Kinect2Engine(calibFile);
+    printf("Checking if there are suitable ROS messages being published.\n");
+    imageSource = new RosEngine(node_handle, calibFile);
+    // rgb_sub_ = node_handle->subscribe("/camera/rgb/image_raw", 1,
+    //                                   &RosEngine::rgbCallback,
+    //                                   (RosEngine *)imageSource);
+
+    depth_sub_ = node_handle->subscribe("/camera/depth/image_raw", 1,
+                                        &RosEngine::depthCallback,
+                                        (RosEngine *)imageSource);
+
+    rgb_sub_ = node_handle->subscribe("/camera/color/image_raw", 1,
+                                      &RosEngine::rgbCallback,
+                                      (RosEngine *)imageSource);
+
     if (imageSource->getDepthImageSize().x == 0) {
       delete imageSource;
       imageSource = NULL;
@@ -86,6 +113,9 @@ static void CreateDefaultImageSource(ImageSourceEngine *&imageSource,
 }
 
 int main(int argc, char **argv) try {
+  ros::init(argc, argv, "infinitam_node");
+  ros::NodeHandle node_handle("~");
+
   const char *arg1 = "";
   const char *arg2 = NULL;
   const char *arg3 = NULL;
@@ -133,7 +163,8 @@ int main(int argc, char **argv) try {
   ImageSourceEngine *imageSource = NULL;
   IMUSourceEngine *imuSource = NULL;
 
-  CreateDefaultImageSource(imageSource, imuSource, arg1, arg2, arg3, arg4);
+  CreateDefaultImageSource(&node_handle, imageSource, imuSource, arg1, arg2,
+                           arg3, arg4);
   if (imageSource == NULL) {
     std::cout << "failed to open any image stream" << std::endl;
     return -1;
@@ -147,7 +178,9 @@ int main(int argc, char **argv) try {
   UIEngine::Instance()->Initialise(argc, argv, imageSource, imuSource,
                                    mainEngine, "./Files/Out",
                                    internalSettings->deviceType);
+  ROS_INFO("Initialized.");
   UIEngine::Instance()->Run();
+  ROS_INFO("Done.");
   UIEngine::Instance()->Shutdown();
 
   delete mainEngine;
