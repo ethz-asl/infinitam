@@ -67,33 +67,13 @@ ELSE()
   add_definitions(-DCOMPILE_WITHOUT_CUDA)
 ENDIF()
 
-# find_package(catkin QUIET)
-# CANONIFY_BOOL(ROS_FOUND)
-# message(STATUS "ROS found: ${ROS_FOUND}")
-
-find_package(catkin REQUIRED COMPONENTS
-  cv_bridge
-  dynamic_reconfigure
-  genmsg
-  pcl_conversions
-  pcl_ros
-  roscpp
-  sensor_msgs
-)
-
-find_package(PCL REQUIRED)
+find_package(glog_catkin REQUIRED)
+find_package(catkin_simple REQUIRED)
+catkin_simple(ALL_DEPS_REQUIRED)
 
 find_package(OpenNI QUIET)
 CANONIFY_BOOL(OPENNI_FOUND)
 message(INFO "OpenNI found: " ${OPENNI_FOUND})
-
-find_package(glog_catkin REQUIRED)
-catkin_package()
-include_directories(
-  # include
-  ${catkin_INCLUDE_DIRS}
-  ${PCL_INCLUDE_DIRS}
-)
 
 add_subdirectory(Engine)
 
@@ -114,7 +94,7 @@ add_executable(InfiniTAM_node InfiniTAM_node.cpp)
 target_link_libraries(InfiniTAM_node Engine)
 target_link_libraries(InfiniTAM_node Utils)
 IF(WITH_CUDA)
-  target_link_libraries(InfiniTAM_node ${CUDA_LIBRARIES} ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+  target_link_libraries(InfiniTAM_node ${CUDA_LIBRARIES})
 ELSE()
-  target_link_libraries(InfiniTAM_node ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+  target_link_libraries(InfiniTAM_node)
 ENDIF()
