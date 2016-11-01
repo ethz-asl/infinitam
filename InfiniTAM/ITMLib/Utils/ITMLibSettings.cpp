@@ -48,8 +48,9 @@ ITMLibSettings::ITMLibSettings(void)
 
   /// model the sensor noise as  the weight for weighted ICP
   modelSensorNoise = false;
-  if (trackerType == TRACKER_WICP)
+  if (trackerType == TRACKER_WICP) {
     modelSensorNoise = true;
+  }
 
   // builds the tracking regime. level 0 is full resolution
   if (trackerType == TRACKER_IMU) {
@@ -70,10 +71,11 @@ ITMLibSettings::ITMLibSettings(void)
     trackingRegime[4] = TRACKER_ITERATION_ROTATION;
   }
 
-  if (trackerType == TRACKER_REN)
+  if (trackerType == TRACKER_REN) {
     noICPRunTillLevel = 1;
-  else
+  } else {
     noICPRunTillLevel = 0;
+  }
 
   if ((trackerType == TRACKER_COLOR) && (!ITMVoxel::hasColorInformation)) {
     printf(

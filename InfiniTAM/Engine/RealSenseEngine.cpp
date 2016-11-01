@@ -14,13 +14,13 @@
 using namespace InfiniTAM::Engine;
 
 class RealSenseEngine::PrivateData {
-public:
+ public:
   PrivateData(void) : dev(NULL) {}
-  rs::device *dev = NULL;
+  rs::device* dev = NULL;
   rs::context ctx;
 };
 
-RealSenseEngine::RealSenseEngine(const char *calibFilename,
+RealSenseEngine::RealSenseEngine(const char* calibFilename,
                                  Vector2i requested_imageSize_rgb,
                                  Vector2i requested_imageSize_d)
     : ImageSourceEngine(calibFilename) {
@@ -77,20 +77,20 @@ RealSenseEngine::~RealSenseEngine() {
   }
 }
 
-void RealSenseEngine::getImages(ITMUChar4Image *rgbImage,
-                                ITMShortImage *rawDepthImage) {
+void RealSenseEngine::getImages(ITMUChar4Image* rgbImage,
+                                ITMShortImage* rawDepthImage) {
   dataAvailable = false;
 
   // get frames
   data->dev->wait_for_frames();
-  const uint16_t *depth_frame = reinterpret_cast<const uint16_t *>(
+  const uint16_t* depth_frame = reinterpret_cast<const uint16_t*>(
       data->dev->get_frame_data(rs::stream::depth));
-  const uint8_t *color_frame = reinterpret_cast<const uint8_t *>(
+  const uint8_t* color_frame = reinterpret_cast<const uint8_t*>(
       data->dev->get_frame_data(rs::stream::color));
 
   // setup infinitam frames
-  short *rawDepth = rawDepthImage->GetData(MEMORYDEVICE_CPU);
-  Vector4u *rgb = rgbImage->GetData(MEMORYDEVICE_CPU);
+  short* rawDepth = rawDepthImage->GetData(MEMORYDEVICE_CPU);
+  Vector4u* rgb = rgbImage->GetData(MEMORYDEVICE_CPU);
 
   Vector2i noDims = rawDepthImage->noDims;
   rawDepthImage->Clear();
@@ -124,15 +124,15 @@ Vector2i RealSenseEngine::getRGBImageSize(void) {
 
 using namespace InfiniTAM::Engine;
 
-RealSenseEngine::RealSenseEngine(const char *calibFilename,
+RealSenseEngine::RealSenseEngine(const char* calibFilename,
                                  Vector2i requested_imageSize_rgb,
                                  Vector2i requested_imageSize_d)
     : ImageSourceEngine(calibFilename) {
   printf("compiled without RealSense Windows support\n");
 }
 RealSenseEngine::~RealSenseEngine() {}
-void RealSenseEngine::getImages(ITMUChar4Image *rgbImage,
-                                ITMShortImage *rawDepthImage) {
+void RealSenseEngine::getImages(ITMUChar4Image* rgbImage,
+                                ITMShortImage* rawDepthImage) {
   return;
 }
 bool RealSenseEngine::hasMoreImages(void) { return false; }

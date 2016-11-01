@@ -19,8 +19,7 @@ _CPU_AND_GPU_CODE_ inline float computeUpdatedVoxelDepthInfo(
 
   // project point into image
   pt_camera = M_d * pt_model;
-  if (pt_camera.z <= 0)
-    return -1;
+  if (pt_camera.z <= 0) return -1;
 
   pt_image.x = projParams_d.x * pt_camera.x / pt_camera.z + projParams_d.z;
   pt_image.y = projParams_d.y * pt_camera.y / pt_camera.z + projParams_d.w;
@@ -31,13 +30,11 @@ _CPU_AND_GPU_CODE_ inline float computeUpdatedVoxelDepthInfo(
   // get measured depth from image
   depth_measure =
       depth[(int)(pt_image.x + 0.5f) + (int)(pt_image.y + 0.5f) * imgSize.x];
-  if (depth_measure <= 0.0)
-    return -1;
+  if (depth_measure <= 0.0) return -1;
 
   // check whether voxel needs updating
   eta = depth_measure - pt_camera.z;
-  if (eta < -mu)
-    return eta;
+  if (eta < -mu) return eta;
 
   // compute updated SDF value and reliability
   oldF = TVoxel::SDF_valueToFloat(voxel.sdf);
@@ -60,16 +57,16 @@ _CPU_AND_GPU_CODE_ inline float computeUpdatedVoxelDepthInfo(
 
 template <class TVoxel>
 _CPU_AND_GPU_CODE_ inline void computeUpdatedVoxelColorInfo(
-    DEVICEPTR(TVoxel) & voxel, const THREADPTR(Vector4f) & pt_model,
-    const CONSTPTR(Matrix4f) & M_rgb, const CONSTPTR(Vector4f) & projParams_rgb,
-    float mu, uchar maxW, float eta, const CONSTPTR(Vector4u) * rgb,
-    const CONSTPTR(Vector2i) & imgSize) {
+    /* clang-format off */
+    DEVICEPTR(TVoxel)& voxel, const THREADPTR(Vector4f)& pt_model,
+    const CONSTPTR(Matrix4f)& M_rgb, const CONSTPTR(Vector4f)& projParams_rgb,
+    float mu, uchar maxW, float eta, const CONSTPTR(Vector4u)* rgb,
+    const CONSTPTR(Vector2i)& imgSize /* clang-format on */) {
   Vector4f pt_camera;
   Vector2f pt_image;
   Vector3f rgb_measure, oldC, newC;
   Vector3u buffV3u;
   float newW, oldW;
-
   buffV3u = voxel.clr;
   oldW = (float)voxel.w_color;
 
@@ -102,46 +99,53 @@ _CPU_AND_GPU_CODE_ inline void computeUpdatedVoxelColorInfo(
   voxel.w_color = (uchar)newW;
 }
 
-template <bool hasColor, class TVoxel> struct ComputeUpdatedVoxelInfo;
+template <bool hasColor, class TVoxel>
+struct ComputeUpdatedVoxelInfo;
 
-template <class TVoxel> struct ComputeUpdatedVoxelInfo<false, TVoxel> {
-  _CPU_AND_GPU_CODE_ static void compute(
-      DEVICEPTR(TVoxel) & voxel, const THREADPTR(Vector4f) & pt_model,
-      const CONSTPTR(Matrix4f) & M_d, const CONSTPTR(Vector4f) & projParams_d,
-      const CONSTPTR(Matrix4f) & M_rgb,
-      const CONSTPTR(Vector4f) & projParams_rgb, float mu, int maxW,
-      const CONSTPTR(float) * depth, const CONSTPTR(Vector2i) & imgSize_d,
-      const CONSTPTR(Vector4u) * rgb, const CONSTPTR(Vector2i) & imgSize_rgb) {
+template <class TVoxel>
+struct ComputeUpdatedVoxelInfo<false, TVoxel> {
+  _CPU_AND_GPU_CODE_ static void
+  compute(/* clang-format off */
+      DEVICEPTR(TVoxel)& voxel, const THREADPTR(Vector4f)& pt_model,
+      const CONSTPTR(Matrix4f)& M_d, const CONSTPTR(Vector4f)& projParams_d,
+      const CONSTPTR(Matrix4f)& M_rgb,
+      const CONSTPTR(Vector4f)& projParams_rgb, float mu, int maxW,
+      const CONSTPTR(float)* depth, const CONSTPTR(Vector2i)& imgSize_d,
+      const CONSTPTR(Vector4u)* rgb, const CONSTPTR(Vector2i)& imgSize_rgb
+          /* clang-format on */) {
     computeUpdatedVoxelDepthInfo(voxel, pt_model, M_d, projParams_d, mu, maxW,
                                  depth, imgSize_d);
   }
 };
 
-template <class TVoxel> struct ComputeUpdatedVoxelInfo<true, TVoxel> {
-  _CPU_AND_GPU_CODE_ static void compute(
+template <class TVoxel>
+struct ComputeUpdatedVoxelInfo<true, TVoxel> {
+  _CPU_AND_GPU_CODE_ static void
+  compute(/* clang-format off */
       DEVICEPTR(TVoxel) & voxel, const THREADPTR(Vector4f) & pt_model,
-      const THREADPTR(Matrix4f) & M_d, const THREADPTR(Vector4f) & projParams_d,
-      const THREADPTR(Matrix4f) & M_rgb,
-      const THREADPTR(Vector4f) & projParams_rgb, float mu, int maxW,
-      const CONSTPTR(float) * depth, const CONSTPTR(Vector2i) & imgSize_d,
-      const CONSTPTR(Vector4u) * rgb, const THREADPTR(Vector2i) & imgSize_rgb) {
+      const THREADPTR(Matrix4f)& M_d, const THREADPTR(Vector4f)& projParams_d,
+      const THREADPTR(Matrix4f)& M_rgb,
+      const THREADPTR(Vector4f)& projParams_rgb, float mu, int maxW,
+      const CONSTPTR(float)* depth, const CONSTPTR(Vector2i)& imgSize_d,
+      const CONSTPTR(Vector4u)* rgb, const THREADPTR(Vector2i)& imgSize_rgb
+          /* clang-format on */) {
     float eta = computeUpdatedVoxelDepthInfo(voxel, pt_model, M_d, projParams_d,
                                              mu, maxW, depth, imgSize_d);
     // TOOD(ff): Check what the purpose of this is.
-    if ((eta > mu) || (fabs(eta / mu) > 0.25f))
-      return;
+    if ((eta > mu) || (fabs(eta / mu) > 0.25f)) return;
     computeUpdatedVoxelColorInfo(voxel, pt_model, M_rgb, projParams_rgb, mu,
                                  maxW, eta, rgb, imgSize_rgb);
   }
 };
 
 _CPU_AND_GPU_CODE_ inline void buildHashAllocAndVisibleTypePP(
-    DEVICEPTR(uchar) * entriesAllocType, DEVICEPTR(uchar) * entriesVisibleType,
-    int x, int y, DEVICEPTR(Vector4s) * blockCoords,
-    const CONSTPTR(float) * depth, Matrix4f invM_d, Vector4f projParams_d,
+    /* clang-format off */
+    DEVICEPTR(uchar)* entriesAllocType, DEVICEPTR(uchar)* entriesVisibleType,
+    int x, int y, DEVICEPTR(Vector4s)* blockCoords,
+    const CONSTPTR(float)* depth, Matrix4f invM_d, Vector4f projParams_d,
     float mu, Vector2i imgSize, float oneOverVoxelSize,
-    const CONSTPTR(ITMHashEntry) * hashTable, float viewFrustum_min,
-    float viewFrustum_max) {
+    const CONSTPTR(ITMHashEntry)* hashTable, float viewFrustum_min,
+    float viewFrustum_max /* clang-format on */) {
   float depth_measure;
   unsigned int hashIdx;
   int noSteps;
@@ -204,7 +208,7 @@ _CPU_AND_GPU_CODE_ inline void buildHashAllocAndVisibleTypePP(
     if (!isFound) {
       bool isExcess = false;
       if (hashEntry.ptr >=
-          -1) // seach excess list only if there is no room in ordered part
+          -1)  // seach excess list only if there is no room in ordered part
       {
         while (hashEntry.offset >= 1) {
           hashIdx = SDF_BUCKET_NUM + hashEntry.offset - 1;
@@ -223,11 +227,10 @@ _CPU_AND_GPU_CODE_ inline void buildHashAllocAndVisibleTypePP(
         isExcess = true;
       }
 
-      if (!isFound) // still not found
+      if (!isFound)  // still not found
       {
-        entriesAllocType[hashIdx] = isExcess ? 2 : 1; // needs allocation
-        if (!isExcess)
-          entriesVisibleType[hashIdx] = 1; // new entry is visible
+        entriesAllocType[hashIdx] = isExcess ? 2 : 1;    // needs allocation
+        if (!isExcess) entriesVisibleType[hashIdx] = 1;  // new entry is visible
 
         blockCoords[hashIdx] = Vector4s(blockPos.x, blockPos.y, blockPos.z, 1);
       }
@@ -239,16 +242,16 @@ _CPU_AND_GPU_CODE_ inline void buildHashAllocAndVisibleTypePP(
 
 template <bool useSwapping>
 _CPU_AND_GPU_CODE_ inline void checkPointVisibility(
-    THREADPTR(bool) & isVisible, THREADPTR(bool) & isVisibleEnlarged,
-    const THREADPTR(Vector4f) & pt_image, const CONSTPTR(Matrix4f) & M_d,
-    const CONSTPTR(Vector4f) & projParams_d,
-    const CONSTPTR(Vector2i) & imgSize) {
+    /* clang-format off */
+    THREADPTR(bool)& isVisible, THREADPTR(bool)& isVisibleEnlarged,
+    const THREADPTR(Vector4f)& pt_image, const CONSTPTR(Matrix4f)& M_d,
+    const CONSTPTR(Vector4f)& projParams_d,
+    const CONSTPTR(Vector2i)& imgSize /* clang-format on */) {
   Vector4f pt_buff;
 
   pt_buff = M_d * pt_image;
 
-  if (pt_buff.z < 1e-10f)
-    return;
+  if (pt_buff.z < 1e-10f) return;
 
   pt_buff.x = projParams_d.x * pt_buff.x / pt_buff.z + projParams_d.z;
   pt_buff.y = projParams_d.y * pt_buff.y / pt_buff.z + projParams_d.w;
@@ -272,10 +275,11 @@ _CPU_AND_GPU_CODE_ inline void checkPointVisibility(
 
 template <bool useSwapping>
 _CPU_AND_GPU_CODE_ inline void checkBlockVisibility(
-    THREADPTR(bool) & isVisible, THREADPTR(bool) & isVisibleEnlarged,
-    const THREADPTR(Vector3s) & hashPos, const CONSTPTR(Matrix4f) & M_d,
-    const CONSTPTR(Vector4f) & projParams_d, const CONSTPTR(float) & voxelSize,
-    const CONSTPTR(Vector2i) & imgSize) {
+    /* clang-format off */
+    THREADPTR(bool)& isVisible, THREADPTR(bool)& isVisibleEnlarged,
+    const THREADPTR(Vector3s)& hashPos, const CONSTPTR(Matrix4f)& M_d,
+    const CONSTPTR(Vector4f)& projParams_d, const CONSTPTR(float)& voxelSize,
+    const CONSTPTR(Vector2i)& imgSize /* clang-format on */) {
   Vector4f pt_image;
   float factor = (float)SDF_BLOCK_SIZE * voxelSize;
 
@@ -289,51 +293,44 @@ _CPU_AND_GPU_CODE_ inline void checkBlockVisibility(
   pt_image.w = 1.0f;
   checkPointVisibility<useSwapping>(isVisible, isVisibleEnlarged, pt_image, M_d,
                                     projParams_d, imgSize);
-  if (isVisible)
-    return;
+  if (isVisible) return;
 
   // 0 0 1
   pt_image.z += factor;
   checkPointVisibility<useSwapping>(isVisible, isVisibleEnlarged, pt_image, M_d,
                                     projParams_d, imgSize);
-  if (isVisible)
-    return;
+  if (isVisible) return;
 
   // 0 1 1
   pt_image.y += factor;
   checkPointVisibility<useSwapping>(isVisible, isVisibleEnlarged, pt_image, M_d,
                                     projParams_d, imgSize);
-  if (isVisible)
-    return;
+  if (isVisible) return;
 
   // 1 1 1
   pt_image.x += factor;
   checkPointVisibility<useSwapping>(isVisible, isVisibleEnlarged, pt_image, M_d,
                                     projParams_d, imgSize);
-  if (isVisible)
-    return;
+  if (isVisible) return;
 
   // 1 1 0
   pt_image.z -= factor;
   checkPointVisibility<useSwapping>(isVisible, isVisibleEnlarged, pt_image, M_d,
                                     projParams_d, imgSize);
-  if (isVisible)
-    return;
+  if (isVisible) return;
 
   // 1 0 0
   pt_image.y -= factor;
   checkPointVisibility<useSwapping>(isVisible, isVisibleEnlarged, pt_image, M_d,
                                     projParams_d, imgSize);
-  if (isVisible)
-    return;
+  if (isVisible) return;
 
   // 0 1 0
   pt_image.x -= factor;
   pt_image.y += factor;
   checkPointVisibility<useSwapping>(isVisible, isVisibleEnlarged, pt_image, M_d,
                                     projParams_d, imgSize);
-  if (isVisible)
-    return;
+  if (isVisible) return;
 
   // 1 0 1
   pt_image.x += factor;
@@ -341,6 +338,5 @@ _CPU_AND_GPU_CODE_ inline void checkBlockVisibility(
   pt_image.z += factor;
   checkPointVisibility<useSwapping>(isVisible, isVisibleEnlarged, pt_image, M_d,
                                     projParams_d, imgSize);
-  if (isVisible)
-    return;
+  if (isVisible) return;
 }

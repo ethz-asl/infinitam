@@ -18,14 +18,14 @@ using namespace InfiniTAM::Engine;
     @para arg4 the IMU images. If images are omitted, some live sources will
     be tried.
 */
-static void CreateDefaultImageSource(ImageSourceEngine *&imageSource,
-                                     IMUSourceEngine *&imuSource,
-                                     const char *arg1, const char *arg2,
-                                     const char *arg3, const char *arg4) {
-  const char *calibFile = arg1;
-  const char *filename1 = arg2;
-  const char *filename2 = arg3;
-  const char *filename_imu = arg4;
+static void CreateDefaultImageSource(ImageSourceEngine*& imageSource,
+                                     IMUSourceEngine*& imuSource,
+                                     const char* arg1, const char* arg2,
+                                     const char* arg3, const char* arg4) {
+  const char* calibFile = arg1;
+  const char* filename1 = arg2;
+  const char* filename2 = arg3;
+  const char* filename_imu = arg4;
 
   printf("using calibration file: %s\n", calibFile);
 
@@ -77,61 +77,67 @@ static void CreateDefaultImageSource(ImageSourceEngine *&imageSource,
   }
 
   // this is a hack to ensure backwards compatibility in certain configurations
-  if (imageSource == NULL)
+  if (imageSource == NULL) {
     return;
+  }
   if (imageSource->calib.disparityCalib.params == Vector2f(0.0f, 0.0f)) {
     imageSource->calib.disparityCalib.type = ITMDisparityCalib::TRAFO_AFFINE;
     imageSource->calib.disparityCalib.params = Vector2f(1.0f / 1000.0f, 0.0f);
   }
 }
 
-int main(int argc, char **argv) try {
-  const char *arg1 = "";
-  const char *arg2 = NULL;
-  const char *arg3 = NULL;
-  const char *arg4 = NULL;
+int main(int argc, char** argv) try {
+  const char* arg1 = "";
+  const char* arg2 = NULL;
+  const char* arg3 = NULL;
+  const char* arg4 = NULL;
 
   int arg = 1;
   do {
-    if (argv[arg] != NULL)
+    if (argv[arg] != NULL) {
       arg1 = argv[arg];
-    else
+    } else {
       break;
+    }
     ++arg;
-    if (argv[arg] != NULL)
+    if (argv[arg] != NULL) {
       arg2 = argv[arg];
-    else
+    } else {
       break;
+    }
     ++arg;
-    if (argv[arg] != NULL)
+    if (argv[arg] != NULL) {
       arg3 = argv[arg];
-    else
+    } else {
       break;
+    }
     ++arg;
-    if (argv[arg] != NULL)
+    if (argv[arg] != NULL) {
       arg4 = argv[arg];
-    else
+    } else {
       break;
+    }
   } while (false);
 
   if (arg == 1) {
-    printf("usage: %s [<calibfile> [<imagesource>] ]\n"
-           "  <calibfile>   : path to a file containing intrinsic calibration "
-           "parameters\n"
-           "  <imagesource> : either one argument to specify OpenNI device ID\n"
-           "                  or two arguments specifying rgb and depth file "
-           "masks\n"
-           "\n"
-           "examples:\n"
-           "  %s ./Files/Teddy/calib.txt ./Files/Teddy/Frames/%%04i.ppm "
-           "./Files/Teddy/Frames/%%04i.pgm\n"
-           "  %s ./Files/Teddy/calib.txt\n\n",
-           argv[0], argv[0], argv[0]);
+    printf(
+        "usage: %s [<calibfile> [<imagesource>] ]\n"
+        "  <calibfile>   : path to a file containing intrinsic calibration "
+        "parameters\n"
+        "  <imagesource> : either one argument to specify OpenNI device ID\n"
+        "                  or two arguments specifying rgb and depth file "
+        "masks\n"
+        "\n"
+        "examples:\n"
+        "  %s ./Files/Teddy/calib.txt ./Files/Teddy/Frames/%%04i.ppm "
+        "./Files/Teddy/Frames/%%04i.pgm\n"
+        "  %s ./Files/Teddy/calib.txt\n\n",
+        argv[0], argv[0], argv[0]);
   }
 
   printf("initialising ...\n");
-  ImageSourceEngine *imageSource = NULL;
-  IMUSourceEngine *imuSource = NULL;
+  ImageSourceEngine* imageSource = NULL;
+  IMUSourceEngine* imuSource = NULL;
 
   CreateDefaultImageSource(imageSource, imuSource, arg1, arg2, arg3, arg4);
   if (imageSource == NULL) {
@@ -139,8 +145,8 @@ int main(int argc, char **argv) try {
     return -1;
   }
 
-  ITMLibSettings *internalSettings = new ITMLibSettings();
-  ITMMainEngine *mainEngine = new ITMMainEngine(
+  ITMLibSettings* internalSettings = new ITMLibSettings();
+  ITMMainEngine* mainEngine = new ITMMainEngine(
       internalSettings, &imageSource->calib, imageSource->getRGBImageSize(),
       imageSource->getDepthImageSize());
 
@@ -153,10 +159,11 @@ int main(int argc, char **argv) try {
   delete mainEngine;
   delete internalSettings;
   delete imageSource;
-  if (imuSource != NULL)
+  if (imuSource != NULL) {
     delete imuSource;
+  }
   return 0;
-} catch (std::exception &e) {
+} catch (std::exception& e) {
   std::cerr << e.what() << '\n';
   return EXIT_FAILURE;
 }

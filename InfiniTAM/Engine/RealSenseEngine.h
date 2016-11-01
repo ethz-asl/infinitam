@@ -15,21 +15,21 @@
 namespace InfiniTAM {
 namespace Engine {
 class RealSenseEngine : public ImageSourceEngine {
-private:
+ private:
   class PrivateData;
-  PrivateData *data;
+  PrivateData* data;
   bool dataAvailable;
 
   Vector2i imageSize_rgb, imageSize_d;
 
-public:
-  RealSenseEngine(const char *calibFilename,
+ public:
+  RealSenseEngine(const char* calibFilename,
                   Vector2i imageSize_rgb = Vector2i(640, 480),
                   Vector2i imageSize_d = Vector2i(640, 480));
   ~RealSenseEngine();
 
   bool hasMoreImages(void);
-  void getImages(ITMUChar4Image *rgb, ITMShortImage *rawDepth);
+  void getImages(ITMUChar4Image* rgb, ITMShortImage* rawDepth);
   Vector2i getDepthImageSize(void);
   Vector2i getRGBImageSize(void);
 };

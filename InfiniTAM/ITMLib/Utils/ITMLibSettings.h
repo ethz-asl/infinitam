@@ -8,7 +8,7 @@
 namespace ITMLib {
 namespace Objects {
 class ITMLibSettings {
-public:
+ public:
   /// The device used to run the DeviceAgnostic code
   typedef enum { DEVICE_CPU, DEVICE_CUDA, DEVICE_METAL } DeviceType;
 
@@ -44,7 +44,7 @@ public:
   TrackerType trackerType;
 
   /// The tracking regime used by the tracking controller
-  TrackerIterationType *trackingRegime;
+  TrackerIterationType* trackingRegime;
 
   /// The number of levels in the trackingRegime
   int noHierarchyLevels;
@@ -69,8 +69,8 @@ public:
   ~ITMLibSettings(void);
 
   // Suppress the default copy constructor and assignment operator
-  ITMLibSettings(const ITMLibSettings &);
-  ITMLibSettings &operator=(const ITMLibSettings &);
+  ITMLibSettings(const ITMLibSettings&);
+  ITMLibSettings& operator=(const ITMLibSettings&);
 };
 }
 }

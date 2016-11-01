@@ -2,6 +2,9 @@
 
 #include "CLIEngine.h"
 
+#ifndef COMPILE_WITH_Ros
+#include <glog/logging.h>
+#endif
 #include <string.h>
 
 #include "../Utils/FileUtils.h"
@@ -9,81 +12,99 @@
 using namespace InfiniTAM::Engine;
 CLIEngine* CLIEngine::instance;
 
-void CLIEngine::Initialise(ImageSourceEngine *imageSource, IMUSourceEngine *imuSource, ITMMainEngine *mainEngine,
-	ITMLibSettings::DeviceType deviceType)
-{
-	this->imageSource = imageSource;
-	this->imuSource = imuSource;
-	this->mainEngine = mainEngine;
+void CLIEngine::Initialise(ImageSourceEngine* imageSource,
+                           IMUSourceEngine* imuSource,
+                           ITMMainEngine* mainEngine,
+                           ITMLibSettings::DeviceType deviceType) {
+#ifndef COMPILE_WITH_Ros
+  CHECK_NOTNULL(imageSource);
+  CHECK_NOTNULL(mainEngine);
+#endif
+  this->imageSource = imageSource;
+  this->imuSource = imuSource;
+  this->mainEngine = mainEngine;
 
-	this->currentFrameNo = 0;
+  this->currentFrameNo = 0;
 
-	bool allocateGPU = false;
-	if (deviceType == ITMLibSettings::DEVICE_CUDA) allocateGPU = true;
+  bool allocateGPU = false;
+  if (deviceType == ITMLibSettings::DEVICE_CUDA) {
+    allocateGPU = true;
+  }
 
-	inputRGBImage = new ITMUChar4Image(imageSource->getRGBImageSize(), true, allocateGPU);
-	inputRawDepthImage = new ITMShortImage(imageSource->getDepthImageSize(), true, allocateGPU);
-	inputIMUMeasurement = new ITMIMUMeasurement();
+  inputRGBImage =
+      new ITMUChar4Image(imageSource->getRGBImageSize(), true, allocateGPU);
+  inputRawDepthImage =
+      new ITMShortImage(imageSource->getDepthImageSize(), true, allocateGPU);
+  inputIMUMeasurement = new ITMIMUMeasurement();
 
 #ifndef COMPILE_WITHOUT_CUDA
-	ITMSafeCall(cudaThreadSynchronize());
+  ITMSafeCall(cudaThreadSynchronize());
 #endif
 
-	sdkCreateTimer(&timer_instant);
-	sdkCreateTimer(&timer_average);
+  sdkCreateTimer(&timer_instant);
+  sdkCreateTimer(&timer_average);
 
-	sdkResetTimer(&timer_average);
-
-	printf("initialised.\n");
+  sdkResetTimer(&timer_average);
 }
 
-bool CLIEngine::ProcessFrame()
-{
-	if (!imageSource->hasMoreImages()) return false;
-	imageSource->getImages(inputRGBImage, inputRawDepthImage);
+bool CLIEngine::ProcessFrame() {
+  if (!imageSource->hasMoreImages()) {
+    return false;
+  }
+  imageSource->getImages(inputRGBImage, inputRawDepthImage);
 
-	if (imuSource != NULL) {
-		if (!imuSource->hasMoreMeasurements()) return false;
-		else imuSource->getMeasurement(inputIMUMeasurement);
-	}
+  if (imuSource != NULL) {
+    if (!imuSource->hasMoreMeasurements()) {
+      return false;
+    } else {
+      imuSource->getMeasurement(inputIMUMeasurement);
+    }
+  }
 
-	sdkResetTimer(&timer_instant);
-	sdkStartTimer(&timer_instant); sdkStartTimer(&timer_average);
+  sdkResetTimer(&timer_instant);
+  sdkStartTimer(&timer_instant);
+  sdkStartTimer(&timer_average);
 
-	//actual processing on the mailEngine
-	if (imuSource != NULL) mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage, inputIMUMeasurement);
-	else mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage);
+  // actual processing on the mailEngine
+  if (imuSource != NULL) {
+    mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage,
+                             inputIMUMeasurement);
+  } else {
+    mainEngine->ProcessFrame(inputRGBImage, inputRawDepthImage);
+  }
 
 #ifndef COMPILE_WITHOUT_CUDA
-	ITMSafeCall(cudaThreadSynchronize());
+  ITMSafeCall(cudaThreadSynchronize());
 #endif
-	sdkStopTimer(&timer_instant); sdkStopTimer(&timer_average);
+  sdkStopTimer(&timer_instant);
+  sdkStopTimer(&timer_average);
 
-	float processedTime_inst = sdkGetTimerValue(&timer_instant);
-	float processedTime_avg = sdkGetAverageTimerValue(&timer_average);
+  float processedTime_inst = sdkGetTimerValue(&timer_instant);
+  float processedTime_avg = sdkGetAverageTimerValue(&timer_average);
 
-	printf("frame %i: time %.2f, avg %.2f\n", currentFrameNo, processedTime_inst, processedTime_avg);
+  printf("frame %i: time %.2f, avg %.2f\n", currentFrameNo, processedTime_inst,
+         processedTime_avg);
 
-	currentFrameNo++;
+  currentFrameNo++;
 
-	return true;
+  return true;
 }
 
-void CLIEngine::Run()
-{
-	while (true) {
-		if (!ProcessFrame()) break;
-	}
+void CLIEngine::Run() {
+  while (true) {
+    if (!ProcessFrame()) {
+      break;
+    }
+  }
 }
 
-void CLIEngine::Shutdown()
-{
-	sdkDeleteTimer(&timer_instant);
-	sdkDeleteTimer(&timer_average);
+void CLIEngine::Shutdown() {
+  sdkDeleteTimer(&timer_instant);
+  sdkDeleteTimer(&timer_average);
 
-	delete inputRGBImage;
-	delete inputRawDepthImage;
-	delete inputIMUMeasurement;
+  delete inputRGBImage;
+  delete inputRawDepthImage;
+  delete inputIMUMeasurement;
 
-	delete instance;
+  delete instance;
 }

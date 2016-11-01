@@ -9,12 +9,12 @@
 
 using namespace InfiniTAM::Engine;
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   try {
-    const char *calibFile = "";
-    const char *imagesource_part1 = NULL;
-    const char *imagesource_part2 = NULL;
-    const char *imagesource_part3 = NULL;
+    const char* calibFile = "";
+    const char* imagesource_part1 = NULL;
+    const char* imagesource_part2 = NULL;
+    const char* imagesource_part3 = NULL;
 
     int arg = 1;
     do {
@@ -56,10 +56,10 @@ int main(int argc, char **argv) {
     }
 
     printf("initialising ...\n");
-    ITMLibSettings *internalSettings = new ITMLibSettings();
+    ITMLibSettings* internalSettings = new ITMLibSettings();
 
-    ImageSourceEngine *imageSource;
-    IMUSourceEngine *imuSource = NULL;
+    ImageSourceEngine* imageSource;
+    IMUSourceEngine* imuSource = NULL;
     printf("using calibration file: %s\n", calibFile);
     if (imagesource_part2 == NULL) {
       printf("using OpenNI device: %s\n", (imagesource_part1 == NULL)
@@ -78,9 +78,10 @@ int main(int argc, char **argv) {
         imageSource = new ImageFileReader(calibFile, imagesource_part1,
                                           imagesource_part2);
       } else {
-        printf("using rgb images: %s\nusing depth images: %s\nusing imu data: "
-               "%s\n",
-               imagesource_part1, imagesource_part2, imagesource_part3);
+        printf(
+            "using rgb images: %s\nusing depth images: %s\nusing imu data: "
+            "%s\n",
+            imagesource_part1, imagesource_part2, imagesource_part3);
         imageSource =
             new RawFileReader(calibFile, imagesource_part1, imagesource_part2,
                               Vector2i(320, 240), 0.5f);
@@ -88,7 +89,7 @@ int main(int argc, char **argv) {
       }
     }
 
-    ITMMainEngine *mainEngine = new ITMMainEngine(
+    ITMMainEngine* mainEngine = new ITMMainEngine(
         internalSettings, &imageSource->calib, imageSource->getRGBImageSize(),
         imageSource->getDepthImageSize());
 
@@ -101,7 +102,7 @@ int main(int argc, char **argv) {
     delete internalSettings;
     delete imageSource;
     return 0;
-  } catch (std::exception &e) {
+  } catch (std::exception& e) {
     std::cerr << e.what() << '\n';
     return EXIT_FAILURE;
   }

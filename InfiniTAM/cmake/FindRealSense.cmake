@@ -1,10 +1,10 @@
-# - Find OpenNI
+# - Find RealSense
 # This module defines
-#  OpenNI_INCLUDE_DIR, where to find OpenNI include files
-#  OpenNI_LIBRARIES, the libraries needed to use OpenNI
-#  OpenNI_FOUND, If false, do not try to use OpenNI.
+#  RealSense_INCLUDE_DIR, where to find RealSense include files
+#  RealSense_LIBRARIES, the libraries needed to use RealSense
+#  RealSense_FOUND, If false, do not try to use RealSense.
 # also defined, but not for general use are
-#  OpenNI_LIBRARY, where to find the OpenNI library.
+#  RealSense_LIBRARY, where to find the RealSense library.
 
 set(REALSENSE_ROOT "/usr/local" CACHE FILEPATH "Root directory of librealsense")
 
@@ -18,9 +18,4 @@ FIND_LIBRARY(RealSense_LIBRARY realsense HINTS "${REALSEMSE_ROOT}/bin/x64" "${RE
 #include(${CMAKE_MODULE_PATH}/FindPackageHandleStandardArgs.cmake)
 find_package_handle_standard_args(RealSense DEFAULT_MSG RealSense_LIBRARY RealSense_INCLUDE_DIR)
 
-#if(OPENNI_FOUND)
-#  set(OpenNI_LIBRARIES ${OpenNI_LIBRARY})
-#endif()
-
 mark_as_advanced(RealSense_LIBRARY RealSense_INCLUDE_DIR)
-
