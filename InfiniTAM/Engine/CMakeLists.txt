@@ -25,28 +25,36 @@ IF(DEFINED libuvc_INCLUDE_DIRS)
 ENDIF()
 
 IF(WITH_REALSENSE)
-  include_directories(${RealSense_INCLUDE_DIR})
+  include_directories(${librealsense_INCLUDE_DIRS})
   add_definitions(-DCOMPILE_WITH_RealSense)
   SET_PROPERTY(SOURCE RealSenseEngine.cpp PROPERTY COMPILE_FLAGS -std=c++11)
 ENDIF()
 
+IF(WITH_ROS)
+  include_directories(${Ros_INCLUDE_DIR})
+  add_definitions(-DCOMPILE_WITH_Ros)
+  SET_PROPERTY(SOURCE RosEngine.cpp PROPERTY COMPILE_FLAGS -std=c++11)
+ENDIF()
+
 add_library(Engine
+CLIEngine.cpp
+CLIEngine.h
 ImageSourceEngine.cpp
 ImageSourceEngine.h
 IMUSourceEngine.cpp
 IMUSourceEngine.h
 Kinect2Engine.cpp
 Kinect2Engine.h
-OpenNIEngine.cpp
-OpenNIEngine.h
 LibUVCEngine.cpp
 LibUVCEngine.h
-UIEngine.cpp
-UIEngine.h
-CLIEngine.cpp
-CLIEngine.h
+OpenNIEngine.cpp
+OpenNIEngine.h
 RealSenseEngine.cpp
 RealSenseEngine.h
+RosEngine.cpp
+RosEngine.h
+UIEngine.cpp
+UIEngine.h
 )
 
 target_link_libraries(Engine ${GLUT_LIBRARIES})
@@ -62,6 +70,8 @@ IF(DEFINED libuvc_LIBRARIES)
   target_link_libraries(Engine ${libuvc_LIBRARIES})
 ENDIF()
 IF(WITH_REALSENSE)
-  TARGET_LINK_LIBRARIES(Engine ${RealSense_LIBRARY})
+  TARGET_LINK_LIBRARIES(Engine ${librealsense_LIBRARIES})
 ENDIF()
-
+IF(WITH_ROS)
+  TARGET_LINK_LIBRARIES(Engine ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${glog_catkin_LIBRARIES})
+ENDIF()

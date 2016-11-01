@@ -105,6 +105,11 @@ If no OpenNI support has been compiled in, the program can be used for offline p
 ```
 The arguments are essentially masks for sprintf and the %04i will be replaced by a running number, accordingly.
 
+A ROS node can be run by the following command
+```
+  $ rosrun infinitam InfiniTAM_node
+```
+this node listens to *depth* and *rgb* images.
 
 #3. Additional Documentation
 

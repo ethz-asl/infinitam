@@ -29,4 +29,3 @@ if(OPENNI_FOUND)
 endif()
 
 mark_as_advanced(OpenNI_LIBRARY OpenNI_INCLUDE_DIR)
-
