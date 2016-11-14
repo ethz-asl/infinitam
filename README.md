@@ -60,6 +60,15 @@ Several 3rd party libraries are needed for compiling InfiniTAM. The given versio
 
 ###1.2 Build Process
 
+#### With Catkin
+If you have ROS installed, you can use the catkin build system Therefore, you can clone  this repo into your catkin workspace:
+
+    cd ~/catkin_ws/src
+    git clone git@github.com:ethz-asl/infinitam.git
+    catkin build infinitam
+
+#### Without Catkin
+
   To compile the system, use the standard cmake approach:
 ```
   $ mkdir build
@@ -94,6 +103,15 @@ Some sensors may need a small change to work correctly with OpenNI, the changes 
 
 
 #2. Sample Programs
+
+## With ROS
+You can call all the generated executables as rosnodes, e.g you can run
+
+   rosrun infinitam infinTAM_node
+   
+which is a node that listens to depth-images and RGB-images.
+
+## Without ROS
 
 The build process should result in an executable InfiniTAM, which is the main sample program. For a version without visualisation, try InfiniTAM_cli. If compiled with OpenNI support, both should run out-of-the-box without problems for live reconstruction. If you have calibration information for your specific device, you can pass it as the first argument to the program, e.g.:
 ```
