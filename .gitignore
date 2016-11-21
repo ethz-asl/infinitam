@@ -1,7 +1,13 @@
+#Eclipse
 .cproject
 .project
 
+# Doxygen
+/InfiniTAM/doxygen-html/
+
+#kdevelop
 *.kdev4
+
 *.opensdf
 *.pdb
 *.sdf
