@@ -25,37 +25,6 @@ ITMExternalTracker::~ITMExternalTracker(void) {
   delete viewHierarchy;
 }
 
-// Get the pose of the camera by f the forward kinematics of the robot.
-ITMPose* ITMExternalTracker::GetTF() {
-
-  ITMPose* mPara;
-
-  tf::StampedTransform transform;
-  try {
-    listener.lookupTransform("/base", "/camera", ros::Time(0), transform);
-  } catch (tf::TransformException &ex) {
-    ROS_ERROR("%s", ex.what());
-    ros::Duration(1.0).sleep();
-  }
-  tf::Vector3 position;
-  tf::Quaternion orientation;
-  position = transform.getOrigin();
-  orientation = transform.getRotation()();
-
-  mPara->params.all[0]=position.x();
-  mPara->params.all[0]=position.y();
-  mPara->params.all[0]=position.z();
-
-//  The three rotation parameters are the Lie algebra representation of SO3.
-//  TODO (gocarlos) get orientation
-  mPara->params.all[0]=orientation.x();
-  mPara->params.all[0]=orientation.y();
-  mPara->params.all[0]=orientation.z();
-  mPara->params.all[0]=orientation.w();
-
-  return *mPara;
-}
-
 void ITMExternalTracker::TrackCamera(ITMTrackingState* trackingState,
                                      const ITMView* view) {
   this->view = view;

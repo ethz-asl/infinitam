@@ -19,6 +19,8 @@
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/image_encodings.h>
+#include <tf/transform_listener.h>
+#include <std_srvs/Empty.h>
 // #endif
 
 namespace InfiniTAM {
@@ -39,6 +41,8 @@ class RosEngine : public ImageSourceEngine {
   Vector2i image_size_rgb_, image_size_depth_;
   sensor_msgs::CameraInfo rgb_info_;
   sensor_msgs::CameraInfo depth_info_;
+  // create a ROS transformation listener
+  tf::TransformListener listener;
 
  public:
   RosEngine(ros::NodeHandle& nh, const char*& calibration_filename);
@@ -50,8 +54,10 @@ class RosEngine : public ImageSourceEngine {
   void depthCameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg);
   bool hasMoreImages(void);
   void getImages(ITMUChar4Image* rgb, ITMShortImage* raw_depth);
+  ITMPose* GetTF(void);
   Vector2i getDepthImageSize(void);
   Vector2i getRGBImageSize(void);
+  bool PublishMap(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response);
 };
 }
 }
