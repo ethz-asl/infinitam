@@ -2,6 +2,10 @@
 
 #pragma once
 
+// ROS
+#include <ros/ros.h>
+#include <tf/transform_listener.h>
+
 #include "../Utils/ITMLibDefines.h"
 
 #include "../Objects/ITMImageHierarchy.h"
@@ -30,6 +34,8 @@ class ITMExternalTracker : public ITMTracker {
   const ITMView* view;
   ITMImageHierarchy<ITMViewHierarchyLevel>* viewHierarchy;
   int levelId;
+  // create a ROS transformation listener
+  tf::TransformListener listener;
 
   int countedPoints_valid;
 
@@ -58,6 +64,7 @@ class ITMExternalTracker : public ITMTracker {
    protected:
     void computeGradients(bool requiresHessian);
 
+
     ITMPose* mPara;
     const ITMExternalTracker* mParent;
 
@@ -69,6 +76,8 @@ class ITMExternalTracker : public ITMTracker {
   EvaluationPoint* evaluateAt(ITMPose* para) const {
     return new EvaluationPoint(para, this);
   }
+
+  ITMPose* GetTF();
 
   int numParameters(void) const {
     return (iterationType == TRACKER_ITERATION_ROTATION) ? 3 : 6;
