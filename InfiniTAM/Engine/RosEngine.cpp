@@ -32,11 +32,18 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
   rgb_info_sub =
       nh.subscribe(rgb_camera_info_topic_, 1, &RosEngine::rgbCameraInfoCallback,
                    (RosEngine*)this);
+
   while (!rgb_info_ready_ || !depth_info_ready_) {
     ROS_INFO("Spinning, waiting for rgb and depth camera info messages.");
     ros::spinOnce();
     ros::Duration(1.0).sleep();
   }
+
+  // initialize service
+  ros::ServiceServer service = nh.advertiseService("service_name",
+                                          &RosEngine::PublishMap,
+                                          (RosEngine*)this);
+
 
   // ROS depth images come in millimeters... (or in floats, which we don't
   // support yet)
@@ -62,6 +69,35 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
 }
 
 RosEngine::~RosEngine() {}
+
+// Get the pose of the camera from the forward kinematics of the robot.
+// Use this pose as an initial guess for the Pose of the camera.
+ITMPose* RosEngine::GetTF() {
+
+  ITMPose* tf_para;
+
+  tf::StampedTransform transform;
+  try {
+    listener.lookupTransform("/base", "/camera", ros::Time(0), transform);
+  } catch (tf::TransformException &ex) {
+    ROS_ERROR("%s", ex.what());
+    ros::Duration(1.0).sleep();
+  }
+
+  Vector3f translation, rotation;
+
+  translation.x=transform.getOrigin().x();
+  translation.y=transform.getOrigin().x();
+  translation.z=transform.getOrigin().x();
+
+//  The three rotation parameters are the Lie algebra representation of SO3.
+//  TODO (gocarlos) get orientation
+
+
+  tf_para->SetFrom(translation, rotation);
+
+  return tf_para;
+}
 
 void RosEngine::rgbCallback(const sensor_msgs::Image::ConstPtr& msg) {
   if (!rgb_ready_ && data_available_) {
@@ -155,6 +191,18 @@ bool RosEngine::hasMoreImages(void) {
 }
 Vector2i RosEngine::getDepthImageSize(void) { return image_size_depth_; }
 Vector2i RosEngine::getRGBImageSize(void) { return image_size_rgb_; }
+
+
+bool RosEngine::PublishMap(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response) {
+
+
+
+
+  // TODO (gocarlos) publish created map here.
+  return true;
+}
+
+
 
 #else
 

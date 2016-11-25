@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include <ros/ros.h>
+#include <tf/transform_listener.h>
+
 #include "../Utils/ITMLibDefines.h"
 
 #include "../Objects/ITMImageHierarchy.h"
@@ -26,7 +29,12 @@ class ITMExternalTracker : public ITMTracker {
 
  protected:
   TrackerIterationType iterationType;
+
+  // write into the pose
+  //  trackingState->pose_d;
+  // TODO(gocarlos) change this here, provide a first guess from the ROS TF
   ITMTrackingState* trackingState;
+
   const ITMView* view;
   ITMImageHierarchy<ITMViewHierarchyLevel>* viewHierarchy;
   int levelId;
@@ -58,6 +66,7 @@ class ITMExternalTracker : public ITMTracker {
    protected:
     void computeGradients(bool requiresHessian);
 
+
     ITMPose* mPara;
     const ITMExternalTracker* mParent;
 
@@ -69,6 +78,8 @@ class ITMExternalTracker : public ITMTracker {
   EvaluationPoint* evaluateAt(ITMPose* para) const {
     return new EvaluationPoint(para, this);
   }
+
+
 
   int numParameters(void) const {
     return (iterationType == TRACKER_ITERATION_ROTATION) ? 3 : 6;
@@ -89,5 +100,5 @@ class ITMExternalTracker : public ITMTracker {
                      MemoryDeviceType memoryType);
   virtual ~ITMExternalTracker(void);
 };
-}
-}
+} // namespace Engine
+} // namespace ITMLib

@@ -97,6 +97,8 @@ static void CreateDefaultImageSource(const char* arg1, const char* arg2,
   if (image_source == NULL) {
     printf("Checking if there are suitable ROS messages being published.\n");
     image_source = new RosEngine(node_handle, calibration_filename);
+
+    // Get images from ROS topic.
     rgb_sub_ = node_handle.subscribe(
         rgb_image_topic, 10, &RosEngine::rgbCallback, (RosEngine*)image_source);
 
@@ -184,9 +186,13 @@ int main(int argc, char** argv) try {
       internal_settings, &image_source->calib, image_source->getRGBImageSize(),
       image_source->getDepthImageSize());
 
+
+
   UIEngine::Instance()->Initialise(argc, argv, image_source, imu_source,
                                    main_engine, "./Files/Out",
                                    internal_settings->deviceType);
+
+
   ROS_INFO("Initialized.");
   UIEngine::Instance()->Run();
   ROS_INFO("Done.");

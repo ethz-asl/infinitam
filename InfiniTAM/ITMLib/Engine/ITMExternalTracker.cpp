@@ -19,9 +19,12 @@ ITMExternalTracker::ITMExternalTracker(Vector2i imgSize,
       imgSize, trackingRegime, noHierarchyLevels, memoryType);
 
   this->lowLevelEngine = lowLevelEngine;
+  ROS_INFO("ITMExternalTracker");
 }
 
-ITMExternalTracker::~ITMExternalTracker(void) { delete viewHierarchy; }
+ITMExternalTracker::~ITMExternalTracker(void) {
+  delete viewHierarchy;
+}
 
 void ITMExternalTracker::TrackCamera(ITMTrackingState* trackingState,
                                      const ITMView* view) {
@@ -30,8 +33,9 @@ void ITMExternalTracker::TrackCamera(ITMTrackingState* trackingState,
 
   this->PrepareForEvaluation(view);
 
-  ITMPose currentPara(view->calib->trafo_rgb_to_depth.calib_inv *
-                      trackingState->pose_d->GetM());
+  ITMPose currentPara(
+      view->calib->trafo_rgb_to_depth.calib_inv
+          * trackingState->pose_d->GetM());
   for (int levelId = viewHierarchy->noLevels - 1; levelId >= 0; levelId--) {
     this->levelId = levelId;
     this->iterationType = viewHierarchy->levels[levelId]->iterationType;
@@ -41,15 +45,15 @@ void ITMExternalTracker::TrackCamera(ITMTrackingState* trackingState,
 
   // these following will coerce the result back into the chosen
   // parameterization for rotations
-  trackingState->pose_d->SetM(view->calib->trafo_rgb_to_depth.calib *
-                              currentPara.GetM());
+  trackingState->pose_d->SetM(
+      view->calib->trafo_rgb_to_depth.calib * currentPara.GetM());
 
   trackingState->pose_d->Coerce();
 
-  // printf(">> %f %f %f %f %f %f\n", scene->pose->params.each.rx,
-  // scene->pose->params.each.ry, scene->pose->params.each.rz,
-  //	scene->pose->params.each.tx, scene->pose->params.each.ty,
-  // scene->pose->params.each.tz);
+//printf(">> %f %f %f %f %f %f\n", scene->pose->params.each.rx,
+//       scene->pose->params.each.ry, scene->pose->params.each.rz,
+//       scene->pose->params.each.tx, scene->pose->params.each.ty,
+//       scene->pose->params.each.tz);
 }
 
 void ITMExternalTracker::PrepareForEvaluation(const ITMView* view) {
@@ -58,8 +62,8 @@ void ITMExternalTracker::PrepareForEvaluation(const ITMView* view) {
   ITMImageHierarchy<ITMViewHierarchyLevel>* hierarchy = viewHierarchy;
 
   for (int i = 1; i < hierarchy->noLevels; i++) {
-    ITMViewHierarchyLevel *currentLevel = hierarchy->levels[i],
-                          *previousLevel = hierarchy->levels[i - 1];
+    ITMViewHierarchyLevel *currentLevel = hierarchy->levels[i], *previousLevel =
+        hierarchy->levels[i - 1];
     lowLevelEngine->FilterSubsample(currentLevel->rgb, previousLevel->rgb);
   }
 
@@ -80,25 +84,25 @@ void ITMExternalTracker::ApplyDelta(const ITMPose& para_old, const float* delta,
       paramVector[0] = 0.0f;
       paramVector[1] = 0.0f;
       paramVector[2] = 0.0f;
-      paramVector[3] = (float)(delta[0]);
-      paramVector[4] = (float)(delta[1]);
-      paramVector[5] = (float)(delta[2]);
+      paramVector[3] = (float) (delta[0]);
+      paramVector[4] = (float) (delta[1]);
+      paramVector[5] = (float) (delta[2]);
       break;
     case TRACKER_ITERATION_TRANSLATION:
-      paramVector[0] = (float)(delta[0]);
-      paramVector[1] = (float)(delta[1]);
-      paramVector[2] = (float)(delta[2]);
+      paramVector[0] = (float) (delta[0]);
+      paramVector[1] = (float) (delta[1]);
+      paramVector[2] = (float) (delta[2]);
       paramVector[3] = 0.0f;
       paramVector[4] = 0.0f;
       paramVector[5] = 0.0f;
       break;
     case TRACKER_ITERATION_BOTH:
-      paramVector[0] = (float)(delta[0]);
-      paramVector[1] = (float)(delta[1]);
-      paramVector[2] = (float)(delta[2]);
-      paramVector[3] = (float)(delta[3]);
-      paramVector[4] = (float)(delta[4]);
-      paramVector[5] = (float)(delta[5]);
+      paramVector[0] = (float) (delta[0]);
+      paramVector[1] = (float) (delta[1]);
+      paramVector[2] = (float) (delta[2]);
+      paramVector[3] = (float) (delta[3]);
+      paramVector[4] = (float) (delta[4]);
+      paramVector[5] = (float) (delta[5]);
       break;
     default:
       break;
@@ -124,7 +128,7 @@ ITMExternalTracker::EvaluationPoint::EvaluationPoint(
   this->mPara = pos;
   this->mParent = f_parent;
 
-  ITMExternalTracker* parent = (ITMExternalTracker*)mParent;
+  ITMExternalTracker* parent = (ITMExternalTracker*) mParent;
 
   parent->F_oneLevel(localF, mPara);
 
@@ -172,8 +176,8 @@ static inline bool minimizeLM(const ITMExternalTracker& tracker,
   float lambda = 0.01f;
   int step_counter = 0;
 
-  ITMExternalTracker::EvaluationPoint* x =
-      tracker.evaluateAt(new ITMPose(initialization));
+  ITMExternalTracker::EvaluationPoint* x = tracker.evaluateAt(
+      new ITMPose(initialization));
   ITMExternalTracker::EvaluationPoint* x2 = NULL;
 
   if (!portable_finite(x->f())) {
@@ -192,7 +196,8 @@ static inline bool minimizeLM(const ITMExternalTracker& tracker,
     bool success;
     {
       float* A = new float[numPara * numPara];
-      for (int i = 0; i < numPara * numPara; ++i) A[i] = B[i];
+      for (int i = 0; i < numPara * numPara; ++i)
+        A[i] = B[i];
       for (int i = 0; i < numPara; ++i) {
         float& ele = A[i * (numPara + 1)];
         if (!(fabs(ele) < 1e-15f))
@@ -214,11 +219,14 @@ static inline bool minimizeLM(const ITMExternalTracker& tracker,
       float MAXnorm = 0.0;
       for (int i = 0; i < numPara; i++) {
         float tmp = fabs(d[i]);
-        if (tmp > MAXnorm) MAXnorm = tmp;
+        if (tmp > MAXnorm)
+          MAXnorm = tmp;
       }
 
-      if (MAXnorm < MIN_STEP) break;
-      for (int i = 0; i < numPara; i++) d[i] = -d[i];
+      if (MAXnorm < MIN_STEP)
+        break;
+      for (int i = 0; i < numPara; i++)
+        d[i] = -d[i];
 
       // make step
       ITMPose* tmp_para = new ITMPose(x->getParameter());
@@ -250,10 +258,12 @@ static inline bool minimizeLM(const ITMExternalTracker& tracker,
       delete x;
       x = x2;
 
-      if (!continueIteration) break;
+      if (!continueIteration)
+        break;
     } else if (x2 != NULL)
       delete x2;
-    if (step_counter++ >= MAX_STEPS - 1) break;
+    if (step_counter++ >= MAX_STEPS - 1)
+      break;
   } while (true);
 
   initialization.SetFrom(&(x->getParameter()));
