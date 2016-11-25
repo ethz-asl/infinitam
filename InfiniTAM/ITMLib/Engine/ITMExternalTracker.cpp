@@ -19,6 +19,7 @@ ITMExternalTracker::ITMExternalTracker(Vector2i imgSize,
       imgSize, trackingRegime, noHierarchyLevels, memoryType);
 
   this->lowLevelEngine = lowLevelEngine;
+  ROS_INFO("ITMExternalTracker");
 }
 
 ITMExternalTracker::~ITMExternalTracker(void) {

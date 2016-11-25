@@ -2,7 +2,8 @@
 
 #pragma once
 
-
+#include <ros/ros.h>
+#include <tf/transform_listener.h>
 
 #include "../Utils/ITMLibDefines.h"
 
@@ -28,7 +29,12 @@ class ITMExternalTracker : public ITMTracker {
 
  protected:
   TrackerIterationType iterationType;
+
+  // write into the pose
+  //  trackingState->pose_d;
+  // TODO(gocarlos) change this here, provide a first guess from the ROS TF
   ITMTrackingState* trackingState;
+
   const ITMView* view;
   ITMImageHierarchy<ITMViewHierarchyLevel>* viewHierarchy;
   int levelId;
@@ -94,5 +100,5 @@ class ITMExternalTracker : public ITMTracker {
                      MemoryDeviceType memoryType);
   virtual ~ITMExternalTracker(void);
 };
-}
-}
+} // namespace Engine
+} // namespace ITMLib

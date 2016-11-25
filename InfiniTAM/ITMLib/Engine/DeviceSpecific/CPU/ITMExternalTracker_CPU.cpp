@@ -1,7 +1,8 @@
 // Copyright 2014-2015 Isis Innovation Limited and the authors of InfiniTAM
 
 #include "ITMExternalTracker_CPU.h"
-#include "../../DeviceAgnostic/ITMExternalTracker.h"
+//#include "../../DeviceAgnostic/ITMExternalTracker.h" there is no such file.
+#include "../../ITMExternalTracker.h"
 #include "../../DeviceAgnostic/ITMPixelUtils.h"
 
 using namespace ITMLib::Engine;

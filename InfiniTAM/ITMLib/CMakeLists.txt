@@ -65,7 +65,7 @@ Engine/DeviceAgnostic/ITMMeshingEngine.h
 set(ITMLIB_ENGINE_DEVICESPECIFIC_CPU_SOURCES
 Engine/DeviceSpecific/CPU/ITMColorTracker_CPU.cpp
 Engine/DeviceSpecific/CPU/ITMDepthTracker_CPU.cpp
-Engine/DeviceSpecific/CPU/ITMExternalTracker_CPU.cpp #
+# Engine/DeviceSpecific/CPU/ITMExternalTracker_CPU.cpp #
 Engine/DeviceSpecific/CPU/ITMWeightedICPTracker_CPU.cpp
 Engine/DeviceSpecific/CPU/ITMLowLevelEngine_CPU.cpp
 Engine/DeviceSpecific/CPU/ITMRenTracker_CPU.cpp
@@ -79,7 +79,7 @@ Engine/DeviceSpecific/CPU/ITMMeshingEngine_CPU.cpp
 set(ITMLIB_ENGINE_DEVICESPECIFIC_CPU_HEADERS
 Engine/DeviceSpecific/CPU/ITMColorTracker_CPU.h
 Engine/DeviceSpecific/CPU/ITMDepthTracker_CPU.h
-Engine/DeviceSpecific/CPU/ITMExternalTracker_CPU.cpp #
+# Engine/DeviceSpecific/CPU/ITMExternalTracker_CPU.cpp #
 Engine/DeviceSpecific/CPU/ITMWeightedICPTracker_CPU.h
 Engine/DeviceSpecific/CPU/ITMLowLevelEngine_CPU.h
 Engine/DeviceSpecific/CPU/ITMRenTracker_CPU.h

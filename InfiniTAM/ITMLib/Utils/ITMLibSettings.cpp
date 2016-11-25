@@ -7,9 +7,9 @@
 using namespace ITMLib::Objects;
 
 ITMLibSettings::ITMLibSettings(void)
-    : sceneParams(0.02f, 100, 0.005f, 0.2f, 3.0f, false) {
+    : sceneParams(0.02f, 100, 0.003f, 0.2f, 3.0f, false) {
   /// depth threashold for the ICP tracker
-  depthTrackerICPThreshold = 0.2f;
+  depthTrackerICPThreshold = 0.01f;
 
   /// For ITMDepthTracker: ICP iteration termination threshold
   depthTrackerTerminationThreshold = 1e-3f;
@@ -27,7 +27,9 @@ ITMLibSettings::ITMLibSettings(void)
 #endif
 #endif
 
-  // deviceType = DEVICE_CPU;
+  // currently using only CPU for External tracker
+  // CPU is very slow.
+//  deviceType = DEVICE_CPU;
 
   /// enables or disables swapping. HERE BE DRAGONS: It should work, but
   /// requires more testing
@@ -39,21 +41,18 @@ ITMLibSettings::ITMLibSettings(void)
   /// enable or disable bilateral depth filtering;
   useBilateralFilter = false;
 
-  // trackerType = TRACKER_COLOR;
-  // trackerType = TRACKER_ICP;
+   trackerType = TRACKER_COLOR;
+//  trackerType = TRACKER_ICP;
   // trackerType = TRACKER_REN;
   // trackerType = TRACKER_IMU;
   // trackerType = TRACKER_WICP;
-  trackerType = TRACKER_EXTERNAL;
-
-
+  //  trackerType = TRACKER_EXTERNAL;
 
   /// model the sensor noise as  the weight for weighted ICP
   modelSensorNoise = false;
   if (trackerType == TRACKER_WICP) {
     modelSensorNoise = true;
   }
-
 
   // builds the tracking regime. level 0 is full resolution
   if (trackerType == TRACKER_IMU) {
@@ -85,7 +84,8 @@ ITMLibSettings::ITMLibSettings(void)
         "Error: Color tracker requires a voxel type with color information!\n");
   }
   if (trackerType == TRACKER_EXTERNAL) {
-    // TODO (gocarlos) Do some stuff here.
+    // TODO(gocarlos) Do some stuff here.
+    std::cout << "TRACKER_EXTERNAL" << std::endl;
   }
 }
 
