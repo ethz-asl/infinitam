@@ -195,6 +195,7 @@ Vector2i RosEngine::getRGBImageSize(void) { return image_size_rgb_; }
 
 bool RosEngine::PublishMap(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response) {
 
+  //TODO get pcl pointcloud from ITMMesh Triangles.
 
 
 
