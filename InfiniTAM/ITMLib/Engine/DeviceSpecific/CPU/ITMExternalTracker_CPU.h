@@ -16,5 +16,5 @@ class ITMExternalTracker_CPU : public ITMExternalTracker {
                          const ITMLowLevelEngine* lowLevelEngine);
   ~ITMExternalTracker_CPU(void);
 };
-}
-}
+} // namespace Engine
+} // namespace ITMLib

@@ -26,12 +26,12 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
   nh.param<std::string>("depth_camera_info_topic", depth_camera_info_topic_,
                         "/camera/depth/camera_info");
 
-  depth_info_sub =
-      nh.subscribe(depth_camera_info_topic_, 1,
-                   &RosEngine::depthCameraInfoCallback, (RosEngine*)this);
-  rgb_info_sub =
-      nh.subscribe(rgb_camera_info_topic_, 1, &RosEngine::rgbCameraInfoCallback,
-                   (RosEngine*)this);
+  depth_info_sub = nh.subscribe(depth_camera_info_topic_, 1,
+                                &RosEngine::depthCameraInfoCallback,
+                                (RosEngine*) this);
+  rgb_info_sub = nh.subscribe(rgb_camera_info_topic_, 1,
+                              &RosEngine::rgbCameraInfoCallback,
+                              (RosEngine*) this);
 
   while (!rgb_info_ready_ || !depth_info_ready_) {
     ROS_INFO("Spinning, waiting for rgb and depth camera info messages.");
@@ -41,9 +41,8 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
 
   // initialize service
   ros::ServiceServer service = nh.advertiseService("service_name",
-                                          &RosEngine::PublishMap,
-                                          (RosEngine*)this);
-
+                                                   &RosEngine::PublishMap,
+                                                   (RosEngine*) this);
 
   // ROS depth images come in millimeters... (or in floats, which we don't
   // support yet)
@@ -68,56 +67,30 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
   this->calib.disparityCalib.params = Vector2f(1.0f / 1000.0f, 0.0f);
 }
 
-RosEngine::~RosEngine() {}
-
-// Get the pose of the camera from the forward kinematics of the robot.
-// Use this pose as an initial guess for the Pose of the camera.
-ITMPose* RosEngine::GetTF() {
-
-  ITMPose* tf_para;
-
-  tf::StampedTransform transform;
-  try {
-    listener.lookupTransform("/base", "/camera", ros::Time(0), transform);
-  } catch (tf::TransformException &ex) {
-    ROS_ERROR("%s", ex.what());
-    ros::Duration(1.0).sleep();
-  }
-
-  Vector3f translation, rotation;
-
-  translation.x=transform.getOrigin().x();
-  translation.y=transform.getOrigin().x();
-  translation.z=transform.getOrigin().x();
-
-//  The three rotation parameters are the Lie algebra representation of SO3.
-//  TODO (gocarlos) get orientation
-
-
-  tf_para->SetFrom(translation, rotation);
-
-  return tf_para;
+RosEngine::~RosEngine() {
 }
 
 void RosEngine::rgbCallback(const sensor_msgs::Image::ConstPtr& msg) {
   if (!rgb_ready_ && data_available_) {
-    std::lock_guard<std::mutex> guard(rgb_mutex_);
+    std::lock_guard < std::mutex > guard(rgb_mutex_);
     rgb_ready_ = true;
 
-    cv_rgb_image_ =
-        cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::RGB8);
+    cv_rgb_image_ = cv_bridge::toCvCopy(msg,
+                                        sensor_msgs::image_encodings::RGB8);
   }
 }
 
 void RosEngine::depthCallback(const sensor_msgs::Image::ConstPtr& msg) {
   if (!depth_ready_ && data_available_) {
-    std::lock_guard<std::mutex> guard(depth_mutex_);
+    std::lock_guard < std::mutex > guard(depth_mutex_);
     depth_ready_ = true;
 
-    cv_depth_image_ =
-        cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_16UC1);
+    cv_depth_image_ = cv_bridge::toCvCopy(
+        msg, sensor_msgs::image_encodings::TYPE_16UC1);
   }
 }
+
+
 
 void RosEngine::rgbCameraInfoCallback(
     const sensor_msgs::CameraInfo::ConstPtr& msg) {
@@ -138,7 +111,7 @@ void RosEngine::depthCameraInfoCallback(
 }
 
 void RosEngine::getImages(ITMUChar4Image* rgb_image,
-                          ITMShortImage* raw_depth_image) {
+ITMShortImage* raw_depth_image) {
   // ROS_INFO("getImages().");
   // Wait for frames.
   if (!data_available_) {
@@ -155,8 +128,8 @@ void RosEngine::getImages(ITMUChar4Image* rgb_image,
   uint depth_cols = depth_size.width;
   for (size_t i = 0; i < depth_rows * depth_cols; ++i) {
     raw_depth_infinitam[i] =
-        ((cv_depth_image_->image.data[2 * i + 1] << 8) & 0xFF00) |
-        (cv_depth_image_->image.data[2 * i] & 0xFF);
+    ((cv_depth_image_->image.data[2 * i + 1] << 8) & 0xFF00) |
+    (cv_depth_image_->image.data[2 * i] & 0xFF);
   }
 
   // Setup infinitam rgb frame.
@@ -189,38 +162,38 @@ bool RosEngine::hasMoreImages(void) {
   }
   return true;
 }
-Vector2i RosEngine::getDepthImageSize(void) { return image_size_depth_; }
-Vector2i RosEngine::getRGBImageSize(void) { return image_size_rgb_; }
+Vector2i RosEngine::getDepthImageSize(void) {
+  return image_size_depth_;
+}
+Vector2i RosEngine::getRGBImageSize(void) {
+  return image_size_rgb_;
+}
 
-
-bool RosEngine::PublishMap(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response) {
+bool RosEngine::PublishMap(std_srvs::Empty::Request& request,
+                           std_srvs::Empty::Response& response) {
 
   //TODO get pcl pointcloud from ITMMesh Triangles.
-
-
 
   // TODO (gocarlos) publish created map here.
   return true;
 }
-
-
 
 #else
 
 using namespace InfiniTAM::Engine;
 
 RosEngine::RosEngine(const ros::NodeHandle& nh,
-                     const char*& calibration_filename)
-    : ImageSourceEngine(calibration_filename) {
+    const char*& calibration_filename)
+: ImageSourceEngine(calibration_filename) {
   printf("Compiled without ROS support.\n");
 }
 RosEngine::~RosEngine() {}
 void RosEngine::getImages(ITMUChar4Image* rgb_image,
-                          ITMShortImage* raw_depth_image) {
+    ITMShortImage* raw_depth_image) {
   return;
 }
-bool RosEngine::hasMoreImages(void) { return false; }
-Vector2i RosEngine::getDepthImageSize(void) { return Vector2i(0, 0); }
-Vector2i RosEngine::getRGBImageSize(void) { return Vector2i(0, 0); }
+bool RosEngine::hasMoreImages(void) {return false;}
+Vector2i RosEngine::getDepthImageSize(void) {return Vector2i(0, 0);}
+Vector2i RosEngine::getRGBImageSize(void) {return Vector2i(0, 0);}
 
 #endif

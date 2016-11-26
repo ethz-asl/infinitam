@@ -15,7 +15,7 @@ ITMExternalTracker_CPU::ITMExternalTracker_CPU(
 
 ITMExternalTracker_CPU::~ITMExternalTracker_CPU(void) {}
 
-//void ITMExternalTracker_CPU::F_oneLevel(float* f, ITMPose* pose) {
+void ITMExternalTracker_CPU::F_oneLevel(float* f, ITMPose* pose) {
 //  int noTotalPoints = trackingState->pointCloud->noTotalPoints;
 //
 //  Vector4f projParams = view->calib->intrinsics_rgb.projectionParamsSimple.all;
@@ -56,10 +56,10 @@ ITMExternalTracker_CPU::~ITMExternalTracker_CPU(void) {}
 //  }
 //
 //  f[0] = final_f * scaleForOcclusions;
-//}
+}
 
-//void ITMExternalTracker_CPU::G_oneLevel(float* gradient, float* hessian,
-//                                        ITMPose* pose) const {
+void ITMExternalTracker_CPU::G_oneLevel(float* gradient, float* hessian,
+                                        ITMPose* pose) const {
 //  int noTotalPoints = trackingState->pointCloud->noTotalPoints;
 //
 //  Vector4f projParams = view->calib->intrinsics_rgb.projectionParamsSimple.all;
@@ -121,4 +121,4 @@ ITMExternalTracker_CPU::~ITMExternalTracker_CPU(void) {}
 //    for (int col = row + 1; col < numPara; col++)
 //      hessian[row + col * numPara] = hessian[col + row * numPara];
 //  }
-//}
+}
