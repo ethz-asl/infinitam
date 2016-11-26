@@ -20,11 +20,14 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
       data_available_(true) {
   ros::Subscriber rgb_info_sub;
   ros::Subscriber depth_info_sub;
-
+  ros::Subscriber tf_sub;
   nh.param<std::string>("rgb_camera_info_topic", rgb_camera_info_topic_,
                         "/camera/rgb/camera_info");
   nh.param<std::string>("depth_camera_info_topic", depth_camera_info_topic_,
                         "/camera/depth/camera_info");
+
+  nh.param<std::string>("camera_frame_id", camera_frame_id_, "camera");
+  nh.param<std::string>("base_frame_id", base_frame_id_, "base");
 
   depth_info_sub = nh.subscribe(depth_camera_info_topic_, 1,
                                 &RosEngine::depthCameraInfoCallback,
@@ -32,6 +35,9 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
   rgb_info_sub = nh.subscribe(rgb_camera_info_topic_, 1,
                               &RosEngine::rgbCameraInfoCallback,
                               (RosEngine*) this);
+
+  tf_sub = nh.subscribe("tf", 100, &RosEngine::TFCallback,
+                        (RosEngine*) this);
 
   while (!rgb_info_ready_ || !depth_info_ready_) {
     ROS_INFO("Spinning, waiting for rgb and depth camera info messages.");
@@ -90,8 +96,6 @@ void RosEngine::depthCallback(const sensor_msgs::Image::ConstPtr& msg) {
   }
 }
 
-
-
 void RosEngine::rgbCameraInfoCallback(
     const sensor_msgs::CameraInfo::ConstPtr& msg) {
   image_size_rgb_.x = msg->width;
@@ -108,6 +112,22 @@ void RosEngine::depthCameraInfoCallback(
   depth_info_ = *msg;
   depth_info_ready_ = true;
   ROS_INFO("Got depth camera info.");
+}
+
+// Get the pose of the camera from the forward kinematics of the robot.
+void RosEngine::TFCallback(const tf::tfMessage &tf_msg) {
+
+  tf::StampedTransform camera_base_transform;
+  try {
+    listener.lookupTransform(base_frame_id_, camera_frame_id_, ros::Time(0),
+                             camera_base_transform);
+  } catch (tf::TransformException &ex) {
+    ROS_ERROR("%s", ex.what());
+    ros::Duration(1.0).sleep();
+  }
+//  ROS_INFO_STREAM("transform: \n" << camera_base_transform);
+  std::string frame_id= camera_base_transform.frame_id_;
+  std::cout << "\n" << "transform: \n" << frame_id << std::endl;
 }
 
 void RosEngine::getImages(ITMUChar4Image* rgb_image,

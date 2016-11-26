@@ -36,6 +36,8 @@ class RosEngine : public ImageSourceEngine {
   bool data_available_;
   std::string rgb_camera_info_topic_;
   std::string depth_camera_info_topic_;
+  std::string camera_frame_id_;
+  std::string base_frame_id_;
   std::mutex rgb_mutex_;
   std::mutex depth_mutex_;
   Vector2i image_size_rgb_, image_size_depth_;
@@ -52,9 +54,9 @@ class RosEngine : public ImageSourceEngine {
   void rgbCameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg);
   void depthCallback(const sensor_msgs::Image::ConstPtr& msg);
   void depthCameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg);
+  void TFCallback(const tf::tfMessage &tf_msg);
   bool hasMoreImages(void);
   void getImages(ITMUChar4Image* rgb, ITMShortImage* raw_depth);
-  ITMPose* GetTF(void);
   Vector2i getDepthImageSize(void);
   Vector2i getRGBImageSize(void);
   bool PublishMap(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response);
