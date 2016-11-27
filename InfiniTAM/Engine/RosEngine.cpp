@@ -176,9 +176,6 @@ sensor_msgs::PointCloud2 RosEngine::conversionToPCL() {
   ROS_INFO("conversionToPCL() start");
   pcl::PointCloud<pcl::PointXYZ> complete_point_cloud;
 
-  int blablab=main_engine_->blabla();
-  std::cout<<"blabla is: "<<blablab<<std::endl;
-
   // TODO(gocarlos) there is a bug here, it crashes
   ITMMesh * this_mesh = main_engine_->GetMesh();
 
