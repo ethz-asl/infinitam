@@ -6,6 +6,7 @@
 #include <sensor_msgs/Image.h>
 
 #include "Engine/ImageSourceEngine.h"
+#include "Engine/PoseSourceEngine.h"
 #include "Engine/Kinect2Engine.h"
 #include "Engine/LibUVCEngine.h"
 #include "Engine/OpenNIEngine.h"
@@ -16,18 +17,20 @@
 using namespace InfiniTAM::Engine;
 
 /** Create a default source of depth images from a list of command line
-    arguments. Typically, @para arg1 would identify the calibration file to
-    use, @para arg2 the colour images, @para arg3 the depth images and
-    @para arg4 the IMU images. If images are omitted, some live sources will
-    be tried.
-*/
+ arguments. Typically, @para arg1 would identify the calibration file to
+ use, @para arg2 the colour images, @para arg3 the depth images and
+ @para arg4 the IMU images. If images are omitted, some live sources will
+ be tried.
+ */
 ros::Subscriber rgb_sub_;
 ros::Subscriber depth_sub_;
+ros::Subscriber tf_sub_;
 
 static void CreateDefaultImageSource(const char* arg1, const char* arg2,
                                      const char* arg3, const char* arg4,
                                      ros::NodeHandle& node_handle,
                                      ImageSourceEngine*& image_source,
+                                     PoseSourceEngine*& pose_source,
                                      IMUSourceEngine*& imu_source) {
   const char* calibration_filename = arg1;
   const char* depth_image_filename = arg2;
@@ -46,21 +49,23 @@ static void CreateDefaultImageSource(const char* arg1, const char* arg2,
     printf("using rgb images: %s\nusing depth images: %s\n",
            depth_image_filename, rgb_image_filename);
     if (filename_imu == NULL) {
-      image_source = new ImageFileReader(
-          calibration_filename, depth_image_filename, rgb_image_filename);
+      image_source = new ImageFileReader(calibration_filename,
+                                         depth_image_filename,
+                                         rgb_image_filename);
     } else {
       printf("using imu data: %s\n", filename_imu);
-      image_source =
-          new RawFileReader(calibration_filename, depth_image_filename,
-                            rgb_image_filename, Vector2i(320, 240), 0.5f);
+      image_source = new RawFileReader(calibration_filename,
+                                       depth_image_filename, rgb_image_filename,
+                                       Vector2i(320, 240), 0.5f);
       imu_source = new IMUSourceEngine(filename_imu);
     }
   }
 
   if (image_source == NULL) {
-    printf("trying OpenNI device: %s\n", (depth_image_filename == NULL)
-                                             ? "<OpenNI default device>"
-                                             : depth_image_filename);
+    printf(
+        "trying OpenNI device: %s\n",
+        (depth_image_filename == NULL) ?
+            "<OpenNI default device>" : depth_image_filename);
     image_source = new OpenNIEngine(calibration_filename, depth_image_filename);
     if (image_source->getDepthImageSize().x == 0) {
       delete image_source;
@@ -99,12 +104,17 @@ static void CreateDefaultImageSource(const char* arg1, const char* arg2,
     image_source = new RosEngine(node_handle, calibration_filename);
 
     // Get images from ROS topic.
-    rgb_sub_ = node_handle.subscribe(
-        rgb_image_topic, 10, &RosEngine::rgbCallback, (RosEngine*)image_source);
+    rgb_sub_ = node_handle.subscribe(rgb_image_topic, 10,
+                                     &RosEngine::rgbCallback,
+                                     (RosEngine*) image_source);
 
-    depth_sub_ =
-        node_handle.subscribe(depth_image_topic, 10, &RosEngine::depthCallback,
-                              (RosEngine*)image_source);
+    depth_sub_ = node_handle.subscribe(depth_image_topic, 10,
+                                       &RosEngine::depthCallback,
+                                       (RosEngine*) image_source);
+
+    // Get camera pose from ROS topic.
+//    tf_sub_ = node_handle.subscribe("/tf", 10, &RosEngine::TFCallback,
+//                                          (RosEngine*) pose_source);
 
     if (image_source->getDepthImageSize().x == 0) {
       delete image_source;
@@ -122,7 +132,8 @@ static void CreateDefaultImageSource(const char* arg1, const char* arg2,
   }
 }
 
-int main(int argc, char** argv) try {
+int main(int argc, char** argv)
+try {
   ros::init(argc, argv, "infinitam_node");
   ros::NodeHandle node_handle("~");
 
@@ -155,27 +166,28 @@ int main(int argc, char** argv) try {
   } while (false);
 
   if (arg == 1) {
-    printf(
-        "usage: %s [<calibfile> [<imagesource>] ]\n"
-        "  <calibfile>   : path to a file containing intrinsic calibration "
-        "parameters\n"
-        "  <imagesource> : either one argument to specify OpenNI device ID\n"
-        "                  or two arguments specifying rgb and depth file "
-        "masks\n"
-        "\n"
-        "examples:\n"
-        "  %s ./Files/Teddy/calib.txt ./Files/Teddy/Frames/%%04i.ppm "
-        "./Files/Teddy/Frames/%%04i.pgm\n"
-        "  %s ./Files/Teddy/calib.txt\n\n",
-        argv[0], argv[0], argv[0]);
+    printf("usage: %s [<calibfile> [<imagesource>] ]\n"
+           "  <calibfile>   : path to a file containing intrinsic calibration "
+           "parameters\n"
+           "  <imagesource> : either one argument to specify OpenNI device ID\n"
+           "                  or two arguments specifying rgb and depth file "
+           "masks\n"
+           "\n"
+           "examples:\n"
+           "  %s ./Files/Teddy/calib.txt ./Files/Teddy/Frames/%%04i.ppm "
+           "./Files/Teddy/Frames/%%04i.pgm\n"
+           "  %s ./Files/Teddy/calib.txt\n\n",
+           argv[0], argv[0], argv[0]);
   }
 
   printf("initialising ...\n");
   ImageSourceEngine* image_source = NULL;
+  PoseSourceEngine* pose_source = NULL;
   IMUSourceEngine* imu_source = NULL;
 
+  // Eventually rename this method since pose source also created?
   CreateDefaultImageSource(arg1, arg2, arg3, arg4, node_handle, image_source,
-                           imu_source);
+                           pose_source, imu_source);
   if (image_source == NULL) {
     std::cout << "failed to open any image stream" << std::endl;
     return -1;
@@ -186,12 +198,9 @@ int main(int argc, char** argv) try {
       internal_settings, &image_source->calib, image_source->getRGBImageSize(),
       image_source->getDepthImageSize());
 
-
-
   UIEngine::Instance()->Initialise(argc, argv, image_source, imu_source,
                                    main_engine, "./Files/Out",
                                    internal_settings->deviceType);
-
 
   ROS_INFO("Initialized.");
   UIEngine::Instance()->Run();
@@ -201,9 +210,11 @@ int main(int argc, char** argv) try {
   delete main_engine;
   delete internal_settings;
   delete image_source;
-  if (imu_source != NULL) delete imu_source;
+  if (imu_source != NULL)
+    delete imu_source;
   return 0;
-} catch (std::exception& e) {
+}
+catch (std::exception& e) {
   std::cerr << e.what() << '\n';
   return EXIT_FAILURE;
 }

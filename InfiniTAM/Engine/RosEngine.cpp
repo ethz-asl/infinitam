@@ -16,6 +16,7 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
       rgb_ready_(false),
       depth_ready_(false),
       rgb_info_ready_(false),
+      tf_ready_(false),
       depth_info_ready_(false),
       data_available_(true) {
   ros::Subscriber rgb_info_sub;
@@ -26,8 +27,11 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
   nh.param<std::string>("depth_camera_info_topic", depth_camera_info_topic_,
                         "/camera/depth/camera_info");
 
-  nh.param<std::string>("camera_frame_id", camera_frame_id_, "camera");
-  nh.param<std::string>("base_frame_id", base_frame_id_, "base");
+  nh.param<std::string>("camera_frame_id", camera_frame_id_,
+                        "sr300_depth_frame");
+  nh.param<std::string>("world_frame_id", world_frame_id_, "world");
+
+  camera_pose_=new ITMPose;
 
   depth_info_sub = nh.subscribe(depth_camera_info_topic_, 1,
                                 &RosEngine::depthCameraInfoCallback,
@@ -36,8 +40,10 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
                               &RosEngine::rgbCameraInfoCallback,
                               (RosEngine*) this);
 
-  tf_sub = nh.subscribe("tf", 100, &RosEngine::TFCallback,
-                        (RosEngine*) this);
+  tf_sub = nh.subscribe("/tf", 10, &RosEngine::TFCallback, (RosEngine*) this);
+
+  marker_pub_ = nh.advertise<visualization_msgs::Marker>(
+      "/visualization_marker", 200);
 
   while (!rgb_info_ready_ || !depth_info_ready_) {
     ROS_INFO("Spinning, waiting for rgb and depth camera info messages.");
@@ -45,7 +51,6 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
     ros::Duration(1.0).sleep();
   }
 
-  // initialize service
   ros::ServiceServer service = nh.advertiseService("service_name",
                                                    &RosEngine::PublishMap,
                                                    (RosEngine*) this);
@@ -74,6 +79,7 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
 }
 
 RosEngine::~RosEngine() {
+  delete camera_pose_;
 }
 
 void RosEngine::rgbCallback(const sensor_msgs::Image::ConstPtr& msg) {
@@ -116,23 +122,108 @@ void RosEngine::depthCameraInfoCallback(
 
 // Get the pose of the camera from the forward kinematics of the robot.
 void RosEngine::TFCallback(const tf::tfMessage &tf_msg) {
+  ROS_INFO("TFCallback");
 
-  tf::StampedTransform camera_base_transform;
-  try {
-    listener.lookupTransform(base_frame_id_, camera_frame_id_, ros::Time(0),
-                             camera_base_transform);
-  } catch (tf::TransformException &ex) {
-    ROS_ERROR("%s", ex.what());
-    ros::Duration(1.0).sleep();
+  // BUG: this is only done until "RGB camera intrinsics ..." after that no more calls.
+  // some blocking thread?
+
+  if (!tf_ready_ && data_available_) {
+//    std::lock_guard < std::mutex > guard(tf_mutex_);
+    tf_ready_ = true;
+    ROS_INFO("2");
+
+//    int message_size = tf_msg.transforms.size();
+//    ros::Time time = tf_msg.transforms[message_size].header.stamp;
+
+    try {
+      listener.lookupTransform(world_frame_id_, camera_frame_id_, ros::Time(0),
+                               camera_base_transform_);
+    } catch (tf::TransformException &ex) {
+      ROS_ERROR("%s", ex.what());
+//      ros::Duration(1.0).sleep();
+    }
+    ROS_INFO("3");
+
+    std::string frame_id = camera_base_transform_.frame_id_;
+    std::string frame2_id = camera_base_transform_.child_frame_id_;
+
+    ROS_INFO_STREAM(
+        "transform-> frame_id: " << frame_id << ", child_frame_id: " << frame2_id);
+
+    double x, y, z;
+    x = camera_base_transform_.getOrigin().getX();
+    y = camera_base_transform_.getOrigin().getY();
+    z = camera_base_transform_.getOrigin().getZ();
+
+    double qx, qy, qz, qw;
+    qx = camera_base_transform_.getRotation().getX();
+    qy = camera_base_transform_.getRotation().getY();
+    qz = camera_base_transform_.getRotation().getZ();
+    qw = camera_base_transform_.getRotation().getW();
+
+    double angle = 2 * acos(qw);
+    double t = qx / sqrt(1 - qw * qw) * angle;
+    double u = qy / sqrt(1 - qw * qw) * angle;
+    double v = qz / sqrt(1 - qw * qw) * angle;
+
+    camera_pose_->SetFrom(x, y, z, t, u, v);
+
+    // just for testing --------------------------------------
+    visualization_msgs::Marker camera_marker;
+    camera_marker.header.frame_id = "world";
+    camera_marker.header.stamp = ros::Time::now();
+
+    camera_marker.ns = "camera_marker";
+    camera_marker.id = 1;
+
+    camera_marker.lifetime = ros::Duration();
+    camera_marker.type = 3;
+    camera_marker.action = visualization_msgs::Marker::ADD;
+
+    camera_marker.pose.position.x = camera_base_transform_.getOrigin().x();
+    camera_marker.pose.position.y = camera_base_transform_.getOrigin().y();
+    camera_marker.pose.position.z = camera_base_transform_.getOrigin().z();
+
+    camera_marker.pose.orientation.x = camera_base_transform_.getOrigin().x();
+    camera_marker.pose.orientation.y = camera_base_transform_.getOrigin().y();
+    camera_marker.pose.orientation.z = camera_base_transform_.getOrigin().z();
+    camera_marker.pose.orientation.w = camera_base_transform_.getOrigin().w();
+
+    camera_marker.color.r = ((double) rand() / (RAND_MAX));
+    camera_marker.color.g = ((double) rand() / (RAND_MAX));
+    camera_marker.color.b = ((double) rand() / (RAND_MAX));
+    camera_marker.color.a = 0.8;
+
+    camera_marker.scale.x = 0.05;
+    camera_marker.scale.y = 0.05;
+    camera_marker.scale.z = 0.1;
+    marker_pub_.publish(camera_marker);
+    // just for testing --------------------------------------
   }
-//  ROS_INFO_STREAM("transform: \n" << camera_base_transform);
-  std::string frame_id= camera_base_transform.frame_id_;
-  std::cout << "\n" << "transform: \n" << frame_id << std::endl;
+
+}
+
+void RosEngine::getMeasurement(ITMPose* pose) {
+  ROS_INFO("getMeasurement().");
+  if (!data_available_) {
+    return;
+  }
+  std::lock_guard < std::mutex > tf_guard(tf_mutex_);
+  tf_ready_ = false;
+
+}
+
+bool RosEngine::hasMoreMeasurements(void) {
+  if (!tf_ready_) {
+    ros::spinOnce();
+    return false;
+  }
+  return true;
 }
 
 void RosEngine::getImages(ITMUChar4Image* rgb_image,
 ITMShortImage* raw_depth_image) {
-  // ROS_INFO("getImages().");
+//  ROS_INFO("getImages().");
   // Wait for frames.
   if (!data_available_) {
     return;
@@ -168,6 +259,7 @@ ITMShortImage* raw_depth_image) {
     pixel_value.w = 255;
     rgb_infinitam[i / 3] = pixel_value;
   }
+
   // ROS_INFO("processing rgb done.");
   rgb_ready_ = false;
   depth_ready_ = false;

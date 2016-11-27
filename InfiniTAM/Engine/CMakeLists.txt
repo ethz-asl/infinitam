@@ -41,6 +41,8 @@ CLIEngine.cpp
 CLIEngine.h
 ImageSourceEngine.cpp
 ImageSourceEngine.h
+PoseSourceEngine.cpp #
+PoseSourceEngine.h #
 IMUSourceEngine.cpp
 IMUSourceEngine.h
 Kinect2Engine.cpp

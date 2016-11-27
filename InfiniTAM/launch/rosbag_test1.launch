@@ -13,22 +13,39 @@
 	<arg name="arg1" default="false" />
 	<arg name="arg2" default="false" />
 	<arg name="arg3" default="false" />
-	<arg name="arg4" default="false" />
+	<arg name="arg4" default="false" />	
+	<arg name="arg5" default="false" />	
+	<arg name="arg6" default="false" />	
 
 	<!-- INITIALIZE ROSBAGS: -->
+	<!---->
 	<group if="$(arg arg1)">
 		<node pkg="rosbag" type="play" name="player" output="screen" args="-d 5 /home/gocarlos/rosbags/scripts_2016-11-17-15-20-23.bag"/>
 	</group>
 
+	<!-- some stones on each other -->
 	<group if="$(arg arg2)">
 		<node pkg="rosbag" type="play" name="player" output="screen" args="-d 5 /home/gocarlos/rosbags/scripts_2016-11-17-15-26-18.bag"/>
 	</group>
 
+	<!-- several stones on the table -->
 	<group if="$(arg arg3)">
 		<node pkg="rosbag" type="play" name="player" output="screen" args="-d 5 /home/gocarlos/rosbags/scripts_2016-11-17-15-30-27.bag"/>
 	</group>
 	
+	
 	<group if="$(arg arg4)">
-		<node pkg="rosbag" type="play" name="player" output="screen" args="-d 5 /home/gocarlos/rosbags/depth_points.bag"/>
+		<node pkg="rosbag" type="play" name="player" output="screen" args="-d 5 --clock /home/gocarlos/rosbags/scripts_2016-11-17-15-20-23.bag"/>
 	</group>
+
+	<!-- some stones on each other -->
+	<group if="$(arg arg5)">
+		<node pkg="rosbag" type="play" name="player" output="screen" args="-d 5 --clock /home/gocarlos/rosbags/scripts_2016-11-17-15-26-18.bag"/>
+	</group>
+
+	<!-- several stones on the table -->
+	<group if="$(arg arg6)">
+		<node pkg="rosbag" type="play" name="player" output="screen" args="-d 5 --clock /home/gocarlos/rosbags/scripts_2016-11-17-15-30-27.bag"/>
+	</group>
+	
 </launch>

@@ -4,6 +4,8 @@
 
 #include "../ITMLib/ITMLib.h"
 
+#include "../ITMLib/Objects/ITMPoseMeasurement.h"
+
 namespace InfiniTAM {
 namespace Engine {
 class PoseSourceEngine {
@@ -18,11 +20,12 @@ class PoseSourceEngine {
   int currentFrameNo;
 
  public:
-  PoseSourceEngine(const char* poseMask);
-  ~PoseSourceEngine() {}
+  PoseSourceEngine();
+  ~PoseSourceEngine() {
+  }
 
   bool hasMoreMeasurements(void);
   void getMeasurement(ITMPoseMeasurement* pose);
 };
-}
-}
+}  // Namespace Engine
+}  // Namespace InfiniTAM

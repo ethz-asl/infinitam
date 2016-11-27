@@ -148,6 +148,7 @@ Objects/ITMRenderState.h
 Objects/ITMRenderState_VH.h
 Objects/ITMVoxelBlockHash.h
 Objects/ITMIMUMeasurement.h
+Objects/ITMPoseMeasurement.h
 Objects/ITMMesh.h
 )
 
