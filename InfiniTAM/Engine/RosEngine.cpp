@@ -11,13 +11,15 @@
 
 using namespace InfiniTAM::Engine;
 
-RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
+RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename,
+                     ITMMainEngine* main_engine)
     : ImageSourceEngine(calibration_filename),
       rgb_ready_(false),
       depth_ready_(false),
       rgb_info_ready_(false),
       depth_info_ready_(false),
-      data_available_(true) {
+      data_available_(true),
+      main_engine_(main_engine) {
   ros::Subscriber rgb_info_sub;
   ros::Subscriber depth_info_sub;
 
@@ -33,6 +35,9 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
                               &RosEngine::rgbCameraInfoCallback,
                               (RosEngine*) this);
 
+  complete_point_cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>(
+      "/complete_table_top_scene_topic", 1);
+
   while (!rgb_info_ready_ || !depth_info_ready_) {
     ROS_INFO("Spinning, waiting for rgb and depth camera info messages.");
     ros::spinOnce();
@@ -40,9 +45,9 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
   }
 
   // initialize service
-  ros::ServiceServer service = nh.advertiseService("service_name",
-                                                   &RosEngine::PublishMap,
-                                                   (RosEngine*) this);
+  publish_scene_service_ = nh.advertiseService("publish_scene",
+                                               &RosEngine::PublishMap,
+                                               (RosEngine*) this);
 
   // ROS depth images come in millimeters... (or in floats, which we don't
   // support yet)
@@ -89,8 +94,6 @@ void RosEngine::depthCallback(const sensor_msgs::Image::ConstPtr& msg) {
         msg, sensor_msgs::image_encodings::TYPE_16UC1);
   }
 }
-
-
 
 void RosEngine::rgbCameraInfoCallback(
     const sensor_msgs::CameraInfo::ConstPtr& msg) {
@@ -169,12 +172,78 @@ Vector2i RosEngine::getRGBImageSize(void) {
   return image_size_rgb_;
 }
 
+sensor_msgs::PointCloud2 RosEngine::conversionToPCL() {
+  ROS_INFO("conversionToPCL() start");
+  pcl::PointCloud<pcl::PointXYZ> complete_point_cloud;
+
+  int blablab=main_engine_->blabla();
+  std::cout<<"blabla is: "<<blablab<<std::endl;
+
+  // TODO(gocarlos) there is a bug here, it crashes
+  ITMMesh * this_mesh = main_engine_->GetMesh();
+
+  ORUtils::MemoryBlock<ITMMesh::Triangle> *cpu_triangles;
+  bool shoulDelete = false;
+
+  if (this_mesh->memoryType == MEMORYDEVICE_CUDA) {
+    cpu_triangles = new ORUtils::MemoryBlock<ITMMesh::Triangle>(
+        this_mesh->noMaxTriangles, MEMORYDEVICE_CPU);
+    cpu_triangles->SetFrom(
+        this_mesh->triangles,
+        ORUtils::MemoryBlock<ITMMesh::Triangle>::CUDA_TO_CPU);
+    shoulDelete = true;
+  } else
+    cpu_triangles = this_mesh->triangles;
+
+  ITMMesh::Triangle *triangleArray = cpu_triangles->GetData(MEMORYDEVICE_CPU);
+
+  complete_point_cloud.width = this_mesh->noTotalTriangles * 3;  // 50000;
+  complete_point_cloud.height = 1;  // TODO(gocarlos) how to convert to structured point cloud?
+  complete_point_cloud.is_dense = false;
+  complete_point_cloud.points.resize(
+      complete_point_cloud.width * complete_point_cloud.height);
+
+  //for (uint i = 0; i<noTotalTriangles; i++) fprintf(f, "f %d %d %d\n", i * 3 + 2 + 1, i * 3 + 1 + 1, i * 3 + 0 + 1);
+
+  for (long i = 0; i < this_mesh->noTotalTriangles * 3; i = i + 3) {
+
+
+    complete_point_cloud.points[i].x = triangleArray[i].p0.x;
+    complete_point_cloud.points[i].y = triangleArray[i].p0.y;
+    complete_point_cloud.points[i].z = triangleArray[i].p0.z;
+
+    complete_point_cloud.points[i + 1].x = triangleArray[i].p1.x;
+    complete_point_cloud.points[i + 1].y = triangleArray[i].p1.y;
+    complete_point_cloud.points[i + 1].z = triangleArray[i].p1.z;
+
+    complete_point_cloud.points[i + 2].x = triangleArray[i].p2.x;
+    complete_point_cloud.points[i + 2].y = triangleArray[i].p2.y;
+    complete_point_cloud.points[i + 2].z = triangleArray[i].p2.z;
+
+    //fprintf(f, "v %f %f %f\n", triangleArray[i].p0.x, triangleArray[i].p0.y, triangleArray[i].p0.z);
+    //fprintf(f, "v %f %f %f\n", triangleArray[i].p1.x, triangleArray[i].p1.y, triangleArray[i].p1.z);
+    //fprintf(f, "v %f %f %f\n", triangleArray[i].p2.x, triangleArray[i].p2.y, triangleArray[i].p2.z);
+  }
+
+  if (shoulDelete) {
+    delete cpu_triangles;
+  }
+
+  sensor_msgs::PointCloud2 complete_point_cloud2;
+  pcl::toROSMsg(complete_point_cloud, complete_point_cloud2);
+  complete_point_cloud2.header.frame_id = "world";
+  ROS_INFO("conversionToPCL() end");
+
+  return complete_point_cloud2;
+}
+
 bool RosEngine::PublishMap(std_srvs::Empty::Request& request,
                            std_srvs::Empty::Response& response) {
+  ROS_INFO("PublishMap() start");
 
-  //TODO get pcl pointcloud from ITMMesh Triangles.
+  complete_point_cloud_pub_.publish(conversionToPCL());
+  ROS_INFO("PublishMap() end");
 
-  // TODO (gocarlos) publish created map here.
   return true;
 }
 

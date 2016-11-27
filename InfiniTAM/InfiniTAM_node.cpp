@@ -23,6 +23,7 @@ using namespace InfiniTAM::Engine;
 */
 ros::Subscriber rgb_sub_;
 ros::Subscriber depth_sub_;
+ITMMainEngine* main_engine;
 
 static void CreateDefaultImageSource(const char* arg1, const char* arg2,
                                      const char* arg3, const char* arg4,
@@ -96,7 +97,7 @@ static void CreateDefaultImageSource(const char* arg1, const char* arg2,
   }
   if (image_source == NULL) {
     printf("Checking if there are suitable ROS messages being published.\n");
-    image_source = new RosEngine(node_handle, calibration_filename);
+    image_source = new RosEngine(node_handle, calibration_filename, main_engine);
 
     // Get images from ROS topic.
     rgb_sub_ = node_handle.subscribe(
@@ -182,7 +183,7 @@ int main(int argc, char** argv) try {
   }
 
   ITMLibSettings* internal_settings = new ITMLibSettings();
-  ITMMainEngine* main_engine = new ITMMainEngine(
+  main_engine = new ITMMainEngine(
       internal_settings, &image_source->calib, image_source->getRGBImageSize(),
       image_source->getDepthImageSize());
 

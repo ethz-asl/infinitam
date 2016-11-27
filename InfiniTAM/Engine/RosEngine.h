@@ -14,11 +14,17 @@
 #endif
 #endif
 // #ifdef COMPILE_WITH_Ros
+#include "../ITMLib/Utils/ITMLibDefines.h"
 #include <cv_bridge/cv_bridge.h>
 #include <ros/ros.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/image_encodings.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <pcl/point_types.h>
+#include <pcl/PCLPointCloud2.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl_ros/transforms.h> // transformPointCloud
 #include <tf/transform_listener.h>
 #include <std_srvs/Empty.h>
 // #endif
@@ -43,9 +49,11 @@ class RosEngine : public ImageSourceEngine {
   sensor_msgs::CameraInfo depth_info_;
   // create a ROS transformation listener
   tf::TransformListener listener;
-
+  ros::Publisher complete_point_cloud_pub_;
+  ITMMainEngine* main_engine_;
+  ros::ServiceServer publish_scene_service_;
  public:
-  RosEngine(ros::NodeHandle& nh, const char*& calibration_filename);
+  RosEngine(ros::NodeHandle& nh, const char*& calibration_filename, ITMMainEngine* main_engine);
 
   ~RosEngine();
   void rgbCallback(const sensor_msgs::Image::ConstPtr& msg);
@@ -57,6 +65,7 @@ class RosEngine : public ImageSourceEngine {
   ITMPose* GetTF(void);
   Vector2i getDepthImageSize(void);
   Vector2i getRGBImageSize(void);
+  sensor_msgs::PointCloud2 conversionToPCL(void);
   bool PublishMap(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response);
 };
 }
