@@ -40,7 +40,6 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
                               &RosEngine::rgbCameraInfoCallback,
                               (RosEngine*) this);
 
-  tf_sub = nh.subscribe("/tf", 10, &RosEngine::TFCallback, (RosEngine*) this);
 
   marker_pub_ = nh.advertise<visualization_msgs::Marker>(
       "/visualization_marker", 200);
@@ -126,8 +125,13 @@ void RosEngine::TFCallback(const tf::tfMessage &tf_msg) {
 
   // BUG: this is only done until "RGB camera intrinsics ..." after that no more calls.
   // some blocking thread?
+  ROS_INFO("TFCallbacksadfasdf");
 
+  ROS_INFO_STREAM("data_available_"<<data_available_);
+  ROS_INFO_STREAM("tf_ready_"<<tf_ready_);
+  ROS_INFO("wtf");
   if (!tf_ready_ && data_available_) {
+
 //    std::lock_guard < std::mutex > guard(tf_mutex_);
     tf_ready_ = true;
     ROS_INFO("2");
@@ -200,7 +204,7 @@ void RosEngine::TFCallback(const tf::tfMessage &tf_msg) {
     marker_pub_.publish(camera_marker);
     // just for testing --------------------------------------
   }
-
+ROS_INFO("asdfasdf");
 }
 
 void RosEngine::getMeasurement(ITMPose* pose) {

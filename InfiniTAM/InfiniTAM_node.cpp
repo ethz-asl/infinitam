@@ -32,6 +32,8 @@ static void CreateDefaultImageSource(const char* arg1, const char* arg2,
                                      ImageSourceEngine*& image_source,
                                      PoseSourceEngine*& pose_source,
                                      IMUSourceEngine*& imu_source) {
+                                    CHECK_NOTNULL(pose_source);
+
   const char* calibration_filename = arg1;
   const char* depth_image_filename = arg2;
   const char* rgb_image_filename = arg3;
@@ -102,6 +104,7 @@ static void CreateDefaultImageSource(const char* arg1, const char* arg2,
   if (image_source == NULL) {
     printf("Checking if there are suitable ROS messages being published.\n");
     image_source = new RosEngine(node_handle, calibration_filename);
+    pose_source = new PoseSourceEngine();
 
     // Get images from ROS topic.
     rgb_sub_ = node_handle.subscribe(rgb_image_topic, 10,
@@ -113,8 +116,8 @@ static void CreateDefaultImageSource(const char* arg1, const char* arg2,
                                        (RosEngine*) image_source);
 
     // Get camera pose from ROS topic.
-//    tf_sub_ = node_handle.subscribe("/tf", 10, &RosEngine::TFCallback,
-//                                          (RosEngine*) pose_source);
+    tf_sub_ = node_handle.subscribe("/tf", 10, &RosEngine::TFCallback,
+                                          (RosEngine*) image_source);
 
     if (image_source->getDepthImageSize().x == 0) {
       delete image_source;

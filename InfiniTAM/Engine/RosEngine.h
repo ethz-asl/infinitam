@@ -4,6 +4,7 @@
 
 #include "ImageSourceEngine.h"
 #include "PoseSourceEngine.h"
+#include <glog/logging.h>
 #include <mutex>
 
 #if (!defined USING_CMAKE) && (defined _MSC_VER)
