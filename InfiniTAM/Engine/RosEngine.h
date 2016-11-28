@@ -44,6 +44,7 @@ class RosEngine : public ImageSourceEngine {
   bool data_available_;
   std::string rgb_camera_info_topic_;
   std::string depth_camera_info_topic_;
+  std::string camera_frame_id_;
   std::mutex rgb_mutex_;
   std::mutex depth_mutex_;
   Vector2i image_size_rgb_, image_size_depth_;

@@ -25,7 +25,8 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
                         "/camera/rgb/camera_info");
   nh.param<std::string>("depth_camera_info_topic", depth_camera_info_topic_,
                         "/camera/depth/camera_info");
-
+  nh.param<std::string>("camera_depth_frame", camera_frame_id_,
+                        "/world");
   depth_info_sub =
       nh.subscribe(depth_camera_info_topic_, 1,
                    &RosEngine::depthCameraInfoCallback, (RosEngine*)this);
@@ -224,7 +225,7 @@ sensor_msgs::PointCloud2 RosEngine::conversionToPCL() {
     }
 
     pcl::toROSMsg(complete_point_cloud, complete_point_cloud2);
-    complete_point_cloud2.header.frame_id = "sr300_depth_frame";
+    complete_point_cloud2.header.frame_id = camera_frame_id_;
     return complete_point_cloud2;
 
   } else {
