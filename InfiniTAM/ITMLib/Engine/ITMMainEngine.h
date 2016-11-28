@@ -84,8 +84,9 @@ namespace ITMLib
 				InfiniTAM_IMAGE_UNKNOWN
 			};
 
-			int blabla(){return 666; }
-			ITMMainEngine* address() {return this;}
+      /// Gives access to the meshing engine, is needed to get a full mesh.
+      ITMMeshingEngine<ITMVoxel, ITMVoxelIndex> * GetMeshingEngine(void) { return meshingEngine; }
+
 			/// Gives access to the current input frame
 			ITMView* GetView() { return view; }
 

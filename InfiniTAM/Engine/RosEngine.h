@@ -2,10 +2,11 @@
 
 #pragma once
 
+#include <glog/logging.h>
 #include "ImageSourceEngine.h"
 
 #include <mutex>
-
+#include <string>
 #if (!defined USING_CMAKE) && (defined _MSC_VER)
 #ifdef _DEBUG
 #pragma comment(lib, "libpxcmd_d")
@@ -14,19 +15,20 @@
 #endif
 #endif
 // #ifdef COMPILE_WITH_Ros
-#include "../ITMLib/Utils/ITMLibDefines.h"
 #include <cv_bridge/cv_bridge.h>
+#include <pcl/PCLPointCloud2.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl_ros/transforms.h>  // transformPointCloud
 #include <ros/ros.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>
-#include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/PointCloud2.h>
-#include <pcl/point_types.h>
-#include <pcl/PCLPointCloud2.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl_ros/transforms.h> // transformPointCloud
-#include <tf/transform_listener.h>
+#include <sensor_msgs/image_encodings.h>
 #include <std_srvs/Empty.h>
+#include <tf/transform_listener.h>
+#include "../ITMLib/Utils/ITMLibDefines.h"
+
 // #endif
 
 namespace InfiniTAM {
@@ -47,11 +49,12 @@ class RosEngine : public ImageSourceEngine {
   Vector2i image_size_rgb_, image_size_depth_;
   sensor_msgs::CameraInfo rgb_info_;
   sensor_msgs::CameraInfo depth_info_;
+
   // create a ROS transformation listener
   tf::TransformListener listener;
   ros::Publisher complete_point_cloud_pub_;
-  ITMMainEngine* main_engine_;
   ros::ServiceServer publish_scene_service_;
+
  public:
   RosEngine(ros::NodeHandle& nh, const char*& calibration_filename);
 
@@ -62,12 +65,16 @@ class RosEngine : public ImageSourceEngine {
   void depthCameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg);
   bool hasMoreImages(void);
   void getImages(ITMUChar4Image* rgb, ITMShortImage* raw_depth);
-  inline void setITMMainEngine(ITMMainEngine& main_engine) {main_engine_ = main_engine;}
-  ITMPose* GetTF(void);
+
   Vector2i getDepthImageSize(void);
   Vector2i getRGBImageSize(void);
+
+  // get mesh from Main Engine and return ROS PointCloud2
   sensor_msgs::PointCloud2 conversionToPCL(void);
-  bool PublishMap(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response);
+
+  // ROS Service Callback method which published the mesh as PointCloud
+  bool PublishMap(std_srvs::Empty::Request& request,
+                  std_srvs::Empty::Response& response);
 };
-}
-}
+}  // namespace Engine
+}  // namespace InfiniTAM
