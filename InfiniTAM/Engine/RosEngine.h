@@ -53,7 +53,7 @@ class RosEngine : public ImageSourceEngine {
   ITMMainEngine* main_engine_;
   ros::ServiceServer publish_scene_service_;
  public:
-  RosEngine(ros::NodeHandle& nh, const char*& calibration_filename, ITMMainEngine* main_engine);
+  RosEngine(ros::NodeHandle& nh, const char*& calibration_filename);
 
   ~RosEngine();
   void rgbCallback(const sensor_msgs::Image::ConstPtr& msg);
@@ -62,6 +62,7 @@ class RosEngine : public ImageSourceEngine {
   void depthCameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg);
   bool hasMoreImages(void);
   void getImages(ITMUChar4Image* rgb, ITMShortImage* raw_depth);
+  inline void setITMMainEngine(ITMMainEngine& main_engine) {main_engine_ = main_engine;}
   ITMPose* GetTF(void);
   Vector2i getDepthImageSize(void);
   Vector2i getRGBImageSize(void);

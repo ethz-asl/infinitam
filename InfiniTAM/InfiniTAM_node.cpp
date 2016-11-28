@@ -97,7 +97,7 @@ static void CreateDefaultImageSource(const char* arg1, const char* arg2,
   }
   if (image_source == NULL) {
     printf("Checking if there are suitable ROS messages being published.\n");
-    image_source = new RosEngine(node_handle, calibration_filename, main_engine);
+    image_source = new RosEngine(node_handle, calibration_filename);
 
     // Get images from ROS topic.
     rgb_sub_ = node_handle.subscribe(
@@ -126,6 +126,10 @@ static void CreateDefaultImageSource(const char* arg1, const char* arg2,
 int main(int argc, char** argv) try {
   ros::init(argc, argv, "infinitam_node");
   ros::NodeHandle node_handle("~");
+
+
+  // create instances of different engines here
+  // i.e. RosEngine ros_engine, ITMMainEngine itm_main_engine, ...
 
   const char* arg1 = "";
   const char* arg2 = NULL;
@@ -187,6 +191,7 @@ int main(int argc, char** argv) try {
       internal_settings, &image_source->calib, image_source->getRGBImageSize(),
       image_source->getDepthImageSize());
 
+  image_source->setITMMainEngine(main_engine_);
 
 
   UIEngine::Instance()->Initialise(argc, argv, image_source, imu_source,

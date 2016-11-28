@@ -176,8 +176,19 @@ sensor_msgs::PointCloud2 RosEngine::conversionToPCL() {
   ROS_INFO("conversionToPCL() start");
   pcl::PointCloud<pcl::PointXYZ> complete_point_cloud;
 
+  ROS_INFO_STREAM("is 666??: "<<std::to_string(main_engine_->blabla()));
+  ROS_INFO_STREAM("pointer ?: "<<main_engine_->address());
+
+  ITMMesh* this_mesh(new ITMMesh(MEMORYDEVICE_CUDA));
+  ROS_INFO("conversionToPCL() mesh instantiated");
+
+  main_engine_->SaveSceneToMesh("asdf.obj");
+  ROS_INFO("conversionToPCL() saved mesh");
+
   // TODO(gocarlos) there is a bug here, it crashes
-  ITMMesh * this_mesh = main_engine_->GetMesh();
+  this_mesh = main_engine_->GetMesh();
+  ROS_INFO("conversionToPCL() got mesh");
+
 
   ORUtils::MemoryBlock<ITMMesh::Triangle> *cpu_triangles;
   bool shoulDelete = false;

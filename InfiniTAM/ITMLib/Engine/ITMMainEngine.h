@@ -58,7 +58,7 @@ namespace ITMLib
 			ITMMeshingEngine<ITMVoxel, ITMVoxelIndex> *meshingEngine;
 			ITMMesh *mesh;
 
-			ITMViewBuilder *viewBuilder;		
+			ITMViewBuilder *viewBuilder;
 			ITMDenseMapper<ITMVoxel,ITMVoxelIndex> *denseMapper;
 			ITMTrackingController *trackingController;
 
@@ -84,6 +84,8 @@ namespace ITMLib
 				InfiniTAM_IMAGE_UNKNOWN
 			};
 
+			int blabla(){return 666; }
+			ITMMainEngine* address() {return this;}
 			/// Gives access to the current input frame
 			ITMView* GetView() { return view; }
 
@@ -127,4 +129,3 @@ namespace ITMLib
 		};
 	}
 }
-
