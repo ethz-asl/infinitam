@@ -1,9 +1,0 @@
-<?xml version="1.0"?>
-<launch>
-	<!-- INITIALIZE CAMERA: -->
-    <include file="$(find realsense_camera)/launch/sr300_nodelet_rgbd.launch" />
-    
-	<!-- INITIALIZE INFINITAM: -->
-    <node pkg="infinitam" name="InfiniTAM_node" type="InfiniTAM_node"  output="screen"></node>
-
-</launch>

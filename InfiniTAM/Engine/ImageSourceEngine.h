@@ -9,7 +9,6 @@ namespace Engine {
 class ImageSourceEngine {
  public:
   ITMRGBDCalib calib;
-
   ImageSourceEngine(const char* calibFilename);
   virtual ~ImageSourceEngine() {}
 
@@ -17,6 +16,10 @@ class ImageSourceEngine {
   virtual void getImages(ITMUChar4Image* rgb, ITMShortImage* rawDepth) = 0;
   virtual Vector2i getDepthImageSize(void) = 0;
   virtual Vector2i getRGBImageSize(void) = 0;
+
+  // Little hack in order to access
+  // the main_engine in the RosEngine (RosEngine inherits from ImageSourceEngine)
+  ITMMainEngine* main_engine_ = NULL;
 };
 
 class ImageFileReader : public ImageSourceEngine {

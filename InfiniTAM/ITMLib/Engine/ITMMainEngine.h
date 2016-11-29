@@ -58,7 +58,7 @@ namespace ITMLib
 			ITMMeshingEngine<ITMVoxel, ITMVoxelIndex> *meshingEngine;
 			ITMMesh *mesh;
 
-			ITMViewBuilder *viewBuilder;		
+			ITMViewBuilder *viewBuilder;
 			ITMDenseMapper<ITMVoxel,ITMVoxelIndex> *denseMapper;
 			ITMTrackingController *trackingController;
 
@@ -83,6 +83,9 @@ namespace ITMLib
 				InfiniTAM_IMAGE_FREECAMERA_COLOUR_FROM_NORMAL,
 				InfiniTAM_IMAGE_UNKNOWN
 			};
+
+      /// Gives access to the meshing engine, is needed to get a full mesh.
+      ITMMeshingEngine<ITMVoxel, ITMVoxelIndex> * GetMeshingEngine(void) { return meshingEngine; }
 
 			/// Gives access to the current input frame
 			ITMView* GetView() { return view; }
@@ -127,4 +130,3 @@ namespace ITMLib
 		};
 	}
 }
-

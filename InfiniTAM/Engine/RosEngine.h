@@ -2,11 +2,12 @@
 
 #pragma once
 
+#include <glog/logging.h>
 #include "ImageSourceEngine.h"
 #include "PoseSourceEngine.h"
 #include <glog/logging.h>
 #include <mutex>
-
+#include <string>
 #if (!defined USING_CMAKE) && (defined _MSC_VER)
 #ifdef _DEBUG
 #pragma comment(lib, "libpxcmd_d")
@@ -16,14 +17,21 @@
 #endif
 // #ifdef COMPILE_WITH_Ros
 #include <cv_bridge/cv_bridge.h>
+#include <pcl/PCLPointCloud2.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl_ros/transforms.h>  // transformPointCloud
 #include <ros/ros.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>
+#include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/image_encodings.h>
 #include <tf/transform_listener.h>
 #include <tf/transform_datatypes.h>
 #include <std_srvs/Empty.h>
 #include <visualization_msgs/Marker.h>
+#include <tf/transform_listener.h>
+#include "../ITMLib/Utils/ITMLibDefines.h"
 
 // #endif
 
@@ -51,8 +59,11 @@ class RosEngine : public ImageSourceEngine, public PoseSourceEngine {
   sensor_msgs::CameraInfo depth_info_;
   ITMPose* camera_pose_;
   ros::Publisher marker_pub_;
+
   // create a ROS transformation listener
   tf::TransformListener listener;
+  ros::Publisher complete_point_cloud_pub_;
+  ros::ServiceServer publish_scene_service_;
   tf::StampedTransform camera_base_transform_;
 
  public:
@@ -75,7 +86,12 @@ class RosEngine : public ImageSourceEngine, public PoseSourceEngine {
   Vector2i getDepthImageSize(void);
   Vector2i getRGBImageSize(void);
 
-  bool PublishMap(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response);
+  // get mesh from Main Engine and return ROS PointCloud2
+  sensor_msgs::PointCloud2 conversionToPCL(void);
+
+  // ROS Service Callback method which published the mesh as PointCloud
+  bool PublishMap(std_srvs::Empty::Request& request,
+                  std_srvs::Empty::Response& response);
 };
-}
-}
+}  // namespace Engine
+}  // namespace InfiniTAM
