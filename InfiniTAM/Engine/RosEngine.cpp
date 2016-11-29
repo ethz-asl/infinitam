@@ -2,14 +2,16 @@
 
 #include "RosEngine.h"
 
-#include "../Utils/FileUtils.h"
-
 #include <cstdio>
 #include <stdexcept>
+#include <string>
+
+#include "../Utils/FileUtils.h"
 
 #ifdef COMPILE_WITH_Ros
 
-using namespace InfiniTAM::Engine;
+namespace InfiniTAM {
+namespace Engine {
 
 RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
     : ImageSourceEngine(calibration_filename),
@@ -25,17 +27,21 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
                         "/camera/rgb/camera_info");
   nh.param<std::string>("depth_camera_info_topic", depth_camera_info_topic_,
                         "/camera/depth/camera_info");
-  nh.param<std::string>("camera_depth_frame", camera_frame_id_,
-                        "/world");
-  depth_info_sub =
-      nh.subscribe(depth_camera_info_topic_, 1,
-                   &RosEngine::depthCameraInfoCallback, (RosEngine*)this);
+
+  nh.param<std::string>("camera_depth_frame", camera_frame_id_, "/world");
+
+  nh.param<std::string>("complete_table_top_scene_topic", complete_cloud_topic_,
+                        "/complete_cloud");
+
+  depth_info_sub = nh.subscribe(depth_camera_info_topic_, 1,
+                                &RosEngine::depthCameraInfoCallback,
+                                static_cast<RosEngine*>(this));
   rgb_info_sub =
       nh.subscribe(rgb_camera_info_topic_, 1, &RosEngine::rgbCameraInfoCallback,
-                   (RosEngine*)this);
+                   static_cast<RosEngine*>(this));
 
-  complete_point_cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>(
-      "/complete_table_top_scene_topic", 1);
+  complete_point_cloud_pub_ =
+      nh.advertise<sensor_msgs::PointCloud2>(complete_cloud_topic_, 1);
 
   while (!rgb_info_ready_ || !depth_info_ready_) {
     ROS_INFO("Spinning, waiting for rgb and depth camera info messages.");
@@ -45,7 +51,7 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
 
   // initialize service
   publish_scene_service_ = nh.advertiseService(
-      "publish_scene", &RosEngine::PublishMap, (RosEngine*)this);
+      "publish_scene", &RosEngine::publishMap, static_cast<RosEngine*>(this));
 
   // ROS depth images come in millimeters... (or in floats, which we don't
   // support yet)
@@ -165,86 +171,82 @@ bool RosEngine::hasMoreImages(void) {
 Vector2i RosEngine::getDepthImageSize(void) { return image_size_depth_; }
 Vector2i RosEngine::getRGBImageSize(void) { return image_size_rgb_; }
 
-sensor_msgs::PointCloud2 RosEngine::conversionToPCL() {
-  ROS_INFO("conversionToPCL() start");
-  pcl::PointCloud<pcl::PointXYZ> complete_point_cloud;
-  sensor_msgs::PointCloud2 complete_point_cloud2;
+void RosEngine::extractMeshToPcl(
+    pcl::PointCloud<pcl::PointXYZ>::Ptr out_cloud) {
+  CHECK_NOTNULL(main_engine_);
+  CHECK_NOTNULL(main_engine_->GetMesh());
 
-  if (main_engine_ != NULL) {
+  main_engine_->GetMeshingEngine()->MeshScene(main_engine_->GetMesh(),
+                                              main_engine_->GetScene());
 
-    CHECK_NOTNULL(main_engine_->GetMesh());
+  ORUtils::MemoryBlock<ITMMesh::Triangle>* cpu_triangles;
+  bool rm_triangle_in_cuda_memory = false;
 
-    main_engine_->GetMeshingEngine()->MeshScene(main_engine_->GetMesh(),
-                                           main_engine_->GetScene());
-
-    ORUtils::MemoryBlock<ITMMesh::Triangle>* cpu_triangles;
-    bool shoulDelete = false;
-
-    if (main_engine_->GetMesh()->memoryType == MEMORYDEVICE_CUDA) {
-      cpu_triangles = new ORUtils::MemoryBlock<ITMMesh::Triangle>(
-          main_engine_->GetMesh()->noMaxTriangles, MEMORYDEVICE_CPU);
-      cpu_triangles->SetFrom(
-          main_engine_->GetMesh()->triangles,
-          ORUtils::MemoryBlock<ITMMesh::Triangle>::CUDA_TO_CPU);
-      shoulDelete = true;
-    } else {
-      cpu_triangles = main_engine_->GetMesh()->triangles;
-    }
-
-    ITMMesh::Triangle* triangleArray = cpu_triangles->GetData(MEMORYDEVICE_CPU);
-
-    complete_point_cloud.width =
-        main_engine_->GetMesh()->noTotalTriangles * 3; // Point cloud has 3 points per triangle.
-    complete_point_cloud.height =
-        1;  // TODO(gocarlos) how to convert to structured point cloud?
-    complete_point_cloud.is_dense = false;
-    complete_point_cloud.points.resize(complete_point_cloud.width *
-                                       complete_point_cloud.height);
-
-    ROS_INFO_STREAM("this_mesh->noTotalTriangles: "
-                    << main_engine_->GetMesh()->noTotalTriangles);
-
-    for (long i = 0; i < main_engine_->GetMesh()->noTotalTriangles * 3;
-         i = i + 3) {
-      complete_point_cloud.points[i].x = triangleArray[i].p0.x;
-      complete_point_cloud.points[i].y = triangleArray[i].p0.y;
-      complete_point_cloud.points[i].z = triangleArray[i].p0.z;
-
-      complete_point_cloud.points[i + 1].x = triangleArray[i].p1.x;
-      complete_point_cloud.points[i + 1].y = triangleArray[i].p1.y;
-      complete_point_cloud.points[i + 1].z = triangleArray[i].p1.z;
-
-      complete_point_cloud.points[i + 2].x = triangleArray[i].p2.x;
-      complete_point_cloud.points[i + 2].y = triangleArray[i].p2.y;
-      complete_point_cloud.points[i + 2].z = triangleArray[i].p2.z;
-
-    }
-
-    if (shoulDelete) {
-      delete cpu_triangles;
-    }
-
-    pcl::toROSMsg(complete_point_cloud, complete_point_cloud2);
-    complete_point_cloud2.header.frame_id = camera_frame_id_;
-    return complete_point_cloud2;
-
+  if (main_engine_->GetMesh()->memoryType == MEMORYDEVICE_CUDA) {
+    cpu_triangles = new ORUtils::MemoryBlock<ITMMesh::Triangle>(
+        main_engine_->GetMesh()->noMaxTriangles, MEMORYDEVICE_CPU);
+    cpu_triangles->SetFrom(
+        main_engine_->GetMesh()->triangles,
+        ORUtils::MemoryBlock<ITMMesh::Triangle>::CUDA_TO_CPU);
+    rm_triangle_in_cuda_memory = true;
   } else {
-    ROS_ERROR("main_engine_ is NULL");
+    cpu_triangles = main_engine_->GetMesh()->triangles;
   }
-  return complete_point_cloud2;
+
+  ITMMesh::Triangle* triangleArray = cpu_triangles->GetData(MEMORYDEVICE_CPU);
+
+  out_cloud->width = main_engine_->GetMesh()->noTotalTriangles *
+                     3;  // Point cloud has at least 3 points per triangle.
+  out_cloud->height = 1;
+  out_cloud->is_dense = false;
+  out_cloud->points.resize(out_cloud->width * out_cloud->height);
+
+  ROS_INFO_STREAM("This mesh has " << main_engine_->GetMesh()->noTotalTriangles
+                                   << " triangles");
+
+  const std::string meshFileName = "test.stl";
+
+  // All vertices of the mesh are stored in the pcl point cloud.
+  for (int64 i = 0; i < main_engine_->GetMesh()->noTotalTriangles * 3;
+       i = i + 3) {
+    out_cloud->points[i].x = triangleArray[i].p0.x;
+    out_cloud->points[i].y = triangleArray[i].p0.y;
+    out_cloud->points[i].z = triangleArray[i].p0.z;
+
+    out_cloud->points[i + 1].x = triangleArray[i].p1.x;
+    out_cloud->points[i + 1].y = triangleArray[i].p1.y;
+    out_cloud->points[i + 1].z = triangleArray[i].p1.z;
+
+    out_cloud->points[i + 2].x = triangleArray[i].p2.x;
+    out_cloud->points[i + 2].y = triangleArray[i].p2.y;
+    out_cloud->points[i + 2].z = triangleArray[i].p2.z;
+  }
+
+  if (rm_triangle_in_cuda_memory) {
+    delete cpu_triangles;
+  }
 }
 
-bool RosEngine::PublishMap(std_srvs::Empty::Request& request,
+bool RosEngine::publishMap(std_srvs::Empty::Request& request,
                            std_srvs::Empty::Response& response) {
+  pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_pcl;
+  sensor_msgs::PointCloud2 point_cloud_msg;
 
-  complete_point_cloud_pub_.publish(conversionToPCL());
+  extractMeshToPcl(point_cloud_pcl);
+  pcl::toROSMsg(*point_cloud_pcl, point_cloud_msg);
+  point_cloud_msg.header.frame_id = camera_frame_id_;
+  point_cloud_msg.header.stamp = ros::Time::now();
+
+  complete_point_cloud_pub_.publish(point_cloud_msg);
 
   return true;
 }
-
+}  // namespace Engine
+}  // namespace InfiniTAM
 #else
 
-using namespace InfiniTAM::Engine;
+namespace InfiniTAM {
+namespace Engine {
 
 RosEngine::RosEngine(const ros::NodeHandle& nh,
                      const char*& calibration_filename)
@@ -259,5 +261,7 @@ void RosEngine::getImages(ITMUChar4Image* rgb_image,
 bool RosEngine::hasMoreImages(void) { return false; }
 Vector2i RosEngine::getDepthImageSize(void) { return Vector2i(0, 0); }
 Vector2i RosEngine::getRGBImageSize(void) { return Vector2i(0, 0); }
+}  // namespace Engine
+}  // namespace InfiniTAM
 
 #endif

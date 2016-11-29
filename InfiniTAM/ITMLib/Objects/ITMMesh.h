@@ -44,7 +44,6 @@ namespace ITMLib
 
 				Triangle *triangleArray = cpu_triangles->GetData(MEMORYDEVICE_CPU);
 
-				// TODO(gocarlos): build pcl out oftriangleArray those points
 				FILE *f = fopen(fileName, "w+");
 				if (f != NULL)
 				{

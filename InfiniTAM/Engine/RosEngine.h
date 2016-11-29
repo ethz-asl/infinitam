@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include <glog/logging.h>
 #include "ImageSourceEngine.h"
+#include <glog/logging.h>
 
 #include <mutex>
 #include <string>
@@ -45,6 +45,7 @@ class RosEngine : public ImageSourceEngine {
   std::string rgb_camera_info_topic_;
   std::string depth_camera_info_topic_;
   std::string camera_frame_id_;
+  std::string complete_cloud_topic_;
   std::mutex rgb_mutex_;
   std::mutex depth_mutex_;
   Vector2i image_size_rgb_, image_size_depth_;
@@ -71,10 +72,10 @@ class RosEngine : public ImageSourceEngine {
   Vector2i getRGBImageSize(void);
 
   // get mesh from Main Engine and return ROS PointCloud2
-  sensor_msgs::PointCloud2 conversionToPCL(void);
-
+//  sensor_msgs::PointCloud2 conversionToPCL(void);
+  void extractMeshToPcl(pcl::PointCloud<pcl::PointXYZ>::Ptr out_cloud);
   // ROS Service Callback method which published the mesh as PointCloud
-  bool PublishMap(std_srvs::Empty::Request& request,
+  bool publishMap(std_srvs::Empty::Request& request,
                   std_srvs::Empty::Response& response);
 };
 }  // namespace Engine

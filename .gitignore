@@ -1,6 +1,7 @@
 #Eclipse
 .cproject
 .project
+.settings
 
 # Doxygen
 /InfiniTAM/doxygen-html/
