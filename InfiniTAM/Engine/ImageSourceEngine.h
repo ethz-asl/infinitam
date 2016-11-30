@@ -17,8 +17,6 @@ class ImageSourceEngine {
   virtual Vector2i getDepthImageSize(void) = 0;
   virtual Vector2i getRGBImageSize(void) = 0;
 
-  // Little hack in order to access
-  // the main_engine in the RosEngine (RosEngine inherits from ImageSourceEngine)
   ITMMainEngine* main_engine_ = NULL;
 };
 

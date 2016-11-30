@@ -28,14 +28,12 @@ ros::Subscriber rgb_sub_;
 ros::Subscriber depth_sub_;
 ros::Subscriber tf_sub_;
 
-
-static void SetUpSources(const char* arg1, const char* arg2,
-                                     const char* arg3, const char* arg4,
-                                     ros::NodeHandle& node_handle,
-                                     ImageSourceEngine*& image_source,
-                                     PoseSourceEngine*& pose_source,
-                                     IMUSourceEngine*& imu_source) {
-                                CHECK_NOTNULL(pose_source);
+static void SetUpSources(const char* arg1, const char* arg2, const char* arg3,
+                         const char* arg4, ros::NodeHandle& node_handle,
+                         ImageSourceEngine*& image_source,
+                         PoseSourceEngine*& pose_source,
+                         IMUSourceEngine*& imu_source) {
+  CHECK_NOTNULL(pose_source);
 
   const char* calibration_filename = arg1;
   const char* depth_image_filename = arg2;
@@ -110,8 +108,7 @@ static void SetUpSources(const char* arg1, const char* arg2,
     printf("Checking if there are suitable ROS messages being published.\n");
 
     image_source = new RosEngine(node_handle, calibration_filename);
-    pose_source = new PoseSourceEngine();
-
+//    pose_source = new PoseSourceEngine();
 
     // Get images from ROS topic.
     rgb_sub_ = node_handle.subscribe(rgb_image_topic, 10,
@@ -124,7 +121,7 @@ static void SetUpSources(const char* arg1, const char* arg2,
 
     // Get camera pose from ROS topic.
     tf_sub_ = node_handle.subscribe("/tf", 10, &RosEngine::TFCallback,
-                                          (RosEngine*) image_source);
+                                    (RosEngine*) image_source);
 
     if (image_source->getDepthImageSize().x == 0) {
       delete image_source;
@@ -151,7 +148,9 @@ try {
   ITMLibSettings* internal_settings = NULL;
   ImageSourceEngine* image_source = NULL;
   IMUSourceEngine* imu_source = NULL;
+  PoseSourceEngine* pose_source = NULL;
 
+  pose_source = new PoseSourceEngine();
   internal_settings = new ITMLibSettings();
 
   const char* arg1 = "";
@@ -199,9 +198,8 @@ try {
 
   printf("initialising ...\n");
 
-
-  SetUpSources(arg1, arg2, arg3, arg4, node_handle, image_source,
-                           pose_source, imu_source);
+  SetUpSources(arg1, arg2, arg3, arg4, node_handle, image_source, pose_source,
+               imu_source);
 
   if (image_source == NULL) {
     std::cout << "failed to open any image stream" << std::endl;
