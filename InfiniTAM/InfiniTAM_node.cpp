@@ -27,26 +27,37 @@ using namespace InfiniTAM::Engine;
 ros::Subscriber rgb_sub_;
 ros::Subscriber depth_sub_;
 ros::Subscriber tf_sub_;
+std::string rgb_image_topic;
+std::string depth_image_topic;
+bool getTF;
 
 static void SetUpSources(const char* arg1, const char* arg2, const char* arg3,
                          const char* arg4, ros::NodeHandle& node_handle,
                          ImageSourceEngine*& image_source,
                          PoseSourceEngine*& pose_source,
-                         IMUSourceEngine*& imu_source) {
+                         IMUSourceEngine*& imu_source,
+                         ITMLibSettings*& internal_settings) {
   CHECK_NOTNULL(pose_source);
+  CHECK_NOTNULL(internal_settings);
 
   const char* calibration_filename = arg1;
   const char* depth_image_filename = arg2;
   const char* rgb_image_filename = arg3;
   const char* filename_imu = arg4;
 
-  std::string rgb_image_topic;
-  std::string depth_image_topic;
-
+  // ROS topic names
   node_handle.param<std::string>("rgb_image_topic", rgb_image_topic,
                                  "/camera/rgb/image_raw");
   node_handle.param<std::string>("depth_image_topic", depth_image_topic,
                                  "/camera/depth/image_raw");
+
+  // InfiniTAM settings
+  node_handle.param<float>("viewFrustum_min", internal_settings->sceneParams.viewFrustum_min,
+                                 0.35f);
+  node_handle.param<float>("viewFrustum_max", internal_settings->sceneParams.viewFrustum_max,
+                                 3.0f);
+  //node_handle.param<int>("trackerType", internal_settings->trackerType,
+  //                               3); // TODO(gocarlos): change the tracker type here
 
   printf("using calibration file: %s\n", calibration_filename);
 
@@ -108,7 +119,6 @@ static void SetUpSources(const char* arg1, const char* arg2, const char* arg3,
     printf("Checking if there are suitable ROS messages being published.\n");
 
     image_source = new RosEngine(node_handle, calibration_filename);
-//    pose_source = new PoseSourceEngine();
 
     // Get images from ROS topic.
     rgb_sub_ = node_handle.subscribe(rgb_image_topic, 10,
@@ -119,9 +129,11 @@ static void SetUpSources(const char* arg1, const char* arg2, const char* arg3,
                                        &RosEngine::depthCallback,
                                        (RosEngine*) image_source);
 
-    // Get camera pose from ROS topic.
-    tf_sub_ = node_handle.subscribe("/tf", 10, &RosEngine::TFCallback,
-                                    (RosEngine*) image_source);
+    // Get camera pose from ROS topic, only if tracker type is set to external.
+    if(internal_settings->trackerType==1){
+      tf_sub_ = node_handle.subscribe("/tf", 10, &RosEngine::TFCallback,
+                                      (RosEngine*) image_source);
+    }
 
     if (image_source->getDepthImageSize().x == 0) {
       delete image_source;
@@ -199,7 +211,7 @@ try {
   printf("initialising ...\n");
 
   SetUpSources(arg1, arg2, arg3, arg4, node_handle, image_source, pose_source,
-               imu_source);
+               imu_source, internal_settings);
 
   if (image_source == NULL) {
     std::cout << "failed to open any image stream" << std::endl;
@@ -219,6 +231,7 @@ try {
   ROS_INFO("Initialized.");
   UIEngine::Instance()->Run();
   ROS_INFO("Done.");
+  image_source->set_camera_pose_=false;
   UIEngine::Instance()->Shutdown();
 
   delete main_engine;

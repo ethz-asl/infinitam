@@ -4,6 +4,7 @@
 #include "../../DeviceAgnostic/ITMExternalTracker.h"
 #include "../../ITMExternalTracker.h"
 #include "../../DeviceAgnostic/ITMPixelUtils.h"
+#include <glog/logging.h>
 
 using namespace ITMLib::Engine;
 
@@ -16,6 +17,8 @@ ITMExternalTracker_CPU::ITMExternalTracker_CPU(
 ITMExternalTracker_CPU::~ITMExternalTracker_CPU(void) {}
 
 void ITMExternalTracker_CPU::F_oneLevel(float* f, ITMPose* pose) {
+  LOG(ERROR) << "not implemented yet";
+
 //  int noTotalPoints = trackingState->pointCloud->noTotalPoints;
 //
 //  Vector4f projParams = view->calib->intrinsics_rgb.projectionParamsSimple.all;
@@ -60,6 +63,8 @@ void ITMExternalTracker_CPU::F_oneLevel(float* f, ITMPose* pose) {
 
 void ITMExternalTracker_CPU::G_oneLevel(float* gradient, float* hessian,
                                         ITMPose* pose) const {
+  LOG(ERROR) << "not implemented yet";
+
 //  int noTotalPoints = trackingState->pointCloud->noTotalPoints;
 //
 //  Vector4f projParams = view->calib->intrinsics_rgb.projectionParamsSimple.all;

@@ -18,6 +18,7 @@ class ImageSourceEngine {
   virtual Vector2i getRGBImageSize(void) = 0;
 
   ITMMainEngine* main_engine_ = NULL;
+  bool set_camera_pose_;
 };
 
 class ImageFileReader : public ImageSourceEngine {

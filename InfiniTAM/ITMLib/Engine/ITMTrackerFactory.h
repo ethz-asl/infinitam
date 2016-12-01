@@ -4,6 +4,7 @@
 
 #include <map>
 #include <stdexcept>
+#include <glog/logging.h>
 
 #include "ITMCompositeTracker.h"
 #include "ITMIMUTracker.h"
@@ -12,6 +13,7 @@
 
 #include "DeviceSpecific/CPU/ITMColorTracker_CPU.h"
 #include "DeviceSpecific/CPU/ITMDepthTracker_CPU.h"
+#include "DeviceSpecific/CPU/ITMExternalTracker_CPU.h"
 #include "DeviceSpecific/CPU/ITMWeightedICPTracker_CPU.h"
 #include "DeviceSpecific/CPU/ITMRenTracker_CPU.h"
 #include "../Utils/ITMLibSettings.h"
@@ -19,6 +21,7 @@
 #ifndef COMPILE_WITHOUT_CUDA
 #include "DeviceSpecific/CUDA/ITMColorTracker_CUDA.h"
 #include "DeviceSpecific/CUDA/ITMDepthTracker_CUDA.h"
+#include "DeviceSpecific/CUDA/ITMExternalTracker_CUDA.h"
 #include "DeviceSpecific/CUDA/ITMWeightedICPTracker_CUDA.h"
 #include "DeviceSpecific/CUDA/ITMRenTracker_CUDA.h"
 #endif
@@ -55,7 +58,8 @@ namespace ITMLib
       {
         makers.insert(std::make_pair(ITMLibSettings::TRACKER_COLOR, &MakeColourTracker));
         makers.insert(std::make_pair(ITMLibSettings::TRACKER_ICP, &MakeICPTracker));
-    makers.insert(std::make_pair(ITMLibSettings::TRACKER_WICP, &MakeWeightedICPTracker));
+        makers.insert(std::make_pair(ITMLibSettings::TRACKER_EXTERNAL, &MakeExternalTracker));
+        makers.insert(std::make_pair(ITMLibSettings::TRACKER_WICP, &MakeWeightedICPTracker));
         makers.insert(std::make_pair(ITMLibSettings::TRACKER_IMU, &MakeIMUTracker));
         makers.insert(std::make_pair(ITMLibSettings::TRACKER_REN, &MakeRenTracker));
       }
@@ -119,6 +123,58 @@ namespace ITMLib
         }
 
         DIEWITHEXCEPTION("Failed to make colour tracker");
+      }
+
+      /**
+       * \brief Makes an External Tracker.
+       */
+      static ITMTracker *MakeExternalTracker(
+          const Vector2i& trackedImageSize, const ITMLibSettings *settings,const ITMLowLevelEngine *lowLevelEngine,
+          ITMIMUCalibrator *imuCalibrator, ITMScene<TVoxel, TIndex> *scene) {
+        LOG(INFO) << "TRACKER_EXTERNAL";
+        switch (settings->deviceType)
+        {
+          case ITMLibSettings::DEVICE_CPU:
+          {
+            LOG(INFO) << "DEVICE_CPU";
+            return new ITMExternalTracker_CPU(
+                trackedImageSize,
+                settings->trackingRegime,
+                settings->noHierarchyLevels,
+                lowLevelEngine);
+          }
+          case ITMLibSettings::DEVICE_CUDA:
+          {
+            LOG(INFO) << "DEVICE_CUDA";
+#ifndef COMPILE_WITHOUT_CUDA
+            return new ITMExternalTracker_CUDA(
+              trackedImageSize,
+              settings->trackingRegime,
+              settings->noHierarchyLevels,
+              lowLevelEngine
+            );
+#else
+            break;
+#endif
+          }
+          case ITMLibSettings::DEVICE_METAL:
+          {
+#ifdef COMPILE_WITH_METAL
+            return new ITMExternalTracker_Metal(
+              trackedImageSize,
+              settings->trackingRegime,
+              settings->noHierarchyLevels,
+              lowLevelEngine
+            );
+#else
+            break;
+#endif
+          }
+          default:
+            break;
+        }
+
+        DIEWITHEXCEPTION("Failed to make External tracker");
       }
 
       /**

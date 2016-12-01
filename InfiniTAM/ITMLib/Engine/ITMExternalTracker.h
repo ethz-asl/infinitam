@@ -26,7 +26,8 @@ class ITMExternalTracker : public ITMTracker {
   const ITMLowLevelEngine* lowLevelEngine;
 
   void PrepareForEvaluation(const ITMView* view);
-
+  double x, y, z;
+  double t, u, v;
  protected:
   TrackerIterationType iterationType;
 

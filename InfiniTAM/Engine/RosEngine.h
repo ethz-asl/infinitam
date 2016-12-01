@@ -46,7 +46,8 @@ class RosEngine : public ImageSourceEngine, public PoseSourceEngine {
   bool tf_ready_;
   bool rgb_info_ready_;
   bool depth_info_ready_;
-  bool data_available_;
+  bool data_available_, tf_available_;
+  bool debug_mode_;
   std::string rgb_camera_info_topic_;
   std::string depth_camera_info_topic_;
   std::string camera_frame_id_;
@@ -88,7 +89,6 @@ class RosEngine : public ImageSourceEngine, public PoseSourceEngine {
   Vector2i getRGBImageSize(void);
 
   // get mesh from Main Engine and return ROS PointCloud2
-//  sensor_msgs::PointCloud2 conversionToPCL(void);
   void extractMeshToPcl(pcl::PointCloud<pcl::PointXYZ>::Ptr out_cloud);
   // ROS Service Callback method which published the mesh as PointCloud
   bool publishMap(std_srvs::Empty::Request& request,

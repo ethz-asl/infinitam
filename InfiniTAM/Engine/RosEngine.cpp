@@ -20,9 +20,12 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
       rgb_info_ready_(false),
       tf_ready_(false),
       depth_info_ready_(false),
-      data_available_(true) {
+      data_available_(true),
+      tf_available_(true),
+      debug_mode_(true) {
   ros::Subscriber rgb_info_sub;
   ros::Subscriber depth_info_sub;
+  set_camera_pose_ = true;
   nh.param<std::string>("rgb_camera_info_topic", rgb_camera_info_topic_,
                         "/camera/rgb/camera_info");
   nh.param<std::string>("depth_camera_info_topic", depth_camera_info_topic_,
@@ -32,7 +35,7 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
                         "sr300_depth_frame");
   nh.param<std::string>("world_frame_id", world_frame_id_, "world");
 
-  camera_pose_=new ITMPose;
+  camera_pose_ = new ITMPose;
 
   nh.param<std::string>("complete_table_top_scene_topic", complete_cloud_topic_,
                         "/complete_cloud");
@@ -40,12 +43,12 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
   depth_info_sub = nh.subscribe(depth_camera_info_topic_, 1,
                                 &RosEngine::depthCameraInfoCallback,
                                 static_cast<RosEngine*>(this));
-  rgb_info_sub =
-      nh.subscribe(rgb_camera_info_topic_, 1, &RosEngine::rgbCameraInfoCallback,
-                   static_cast<RosEngine*>(this));
+  rgb_info_sub = nh.subscribe(rgb_camera_info_topic_, 1,
+                              &RosEngine::rgbCameraInfoCallback,
+                              static_cast<RosEngine*>(this));
 
-  complete_point_cloud_pub_ =
-      nh.advertise<sensor_msgs::PointCloud2>(complete_cloud_topic_, 1);
+  complete_point_cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>(
+      complete_cloud_topic_, 1);
 
   marker_pub_ = nh.advertise<visualization_msgs::Marker>(
       "/visualization_marker", 200);
@@ -56,12 +59,10 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
     ros::Duration(1.0).sleep();
   }
 
-  ros::ServiceServer service = nh.advertiseService("service_name",
-                                                   &RosEngine::PublishMap,
-                                                   (RosEngine*) this);
   // initialize service
-  publish_scene_service_ = nh.advertiseService(
-      "publish_scene", &RosEngine::publishMap, static_cast<RosEngine*>(this));
+  publish_scene_service_ = nh.advertiseService("publish_scene",
+                                               &RosEngine::publishMap,
+                                               static_cast<RosEngine*>(this));
 
   // ROS depth images come in millimeters... (or in floats, which we don't
   // support yet)
@@ -87,7 +88,7 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
 }
 
 RosEngine::~RosEngine() {
-  delete camera_pose_;
+//  delete camera_pose_;
 }
 
 void RosEngine::rgbCallback(const sensor_msgs::Image::ConstPtr& msg) {
@@ -95,8 +96,8 @@ void RosEngine::rgbCallback(const sensor_msgs::Image::ConstPtr& msg) {
     std::lock_guard<std::mutex> guard(rgb_mutex_);
     rgb_ready_ = true;
 
-    cv_rgb_image_ =
-        cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::RGB8);
+    cv_rgb_image_ = cv_bridge::toCvCopy(msg,
+                                        sensor_msgs::image_encodings::RGB8);
   }
 }
 
@@ -105,8 +106,8 @@ void RosEngine::depthCallback(const sensor_msgs::Image::ConstPtr& msg) {
     std::lock_guard<std::mutex> guard(depth_mutex_);
     depth_ready_ = true;
 
-    cv_depth_image_ =
-        cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_16UC1);
+    cv_depth_image_ = cv_bridge::toCvCopy(
+        msg, sensor_msgs::image_encodings::TYPE_16UC1);
   }
 }
 
@@ -130,58 +131,36 @@ void RosEngine::depthCameraInfoCallback(
 
 // Get the pose of the camera from the forward kinematics of the robot.
 void RosEngine::TFCallback(const tf::tfMessage &tf_msg) {
-  ROS_INFO("TFCallback");
+//  if (!tf_ready_ && tf_available_) {
 
-  // BUG: this is only done until "RGB camera intrinsics ..." after that no more calls.
-  // some blocking thread?
-  ROS_INFO("TFCallbacksadfasdf");
+  try {
+    listener.lookupTransform(world_frame_id_, camera_frame_id_, ros::Time(0),
+                             camera_base_transform_);
+  } catch (tf::TransformException &ex) {
+    ROS_ERROR("%s", ex.what());
+  }
+  tf_ready_ = true;
 
-  ROS_INFO_STREAM("data_available_"<<data_available_);
-  ROS_INFO_STREAM("tf_ready_"<<tf_ready_);
-  ROS_INFO("wtf");
-  if (!tf_ready_ && data_available_) {
+  double x, y, z;
+  x = camera_base_transform_.getOrigin().getX();
+  y = camera_base_transform_.getOrigin().getY();
+  z = camera_base_transform_.getOrigin().getZ();
 
-//    std::lock_guard < std::mutex > guard(tf_mutex_);
-    tf_ready_ = true;
-    ROS_INFO("2");
+  double qx, qy, qz, qw;
+  qx = camera_base_transform_.getRotation().getX();
+  qy = camera_base_transform_.getRotation().getY();
+  qz = camera_base_transform_.getRotation().getZ();
+  qw = camera_base_transform_.getRotation().getW();
 
-//    int message_size = tf_msg.transforms.size();
-//    ros::Time time = tf_msg.transforms[message_size].header.stamp;
+  double angle = 2 * acos(qw);
+  double t = qx / sqrt(1 - qw * qw) * angle;
+  double u = qy / sqrt(1 - qw * qw) * angle;
+  double v = qz / sqrt(1 - qw * qw) * angle;
 
-    try {
-      listener.lookupTransform(world_frame_id_, camera_frame_id_, ros::Time(0),
-                               camera_base_transform_);
-    } catch (tf::TransformException &ex) {
-      ROS_ERROR("%s", ex.what());
-//      ros::Duration(1.0).sleep();
-    }
-    ROS_INFO("3");
+  camera_pose_->SetFrom(x, y, z, t, u, v);
 
-    std::string frame_id = camera_base_transform_.frame_id_;
-    std::string frame2_id = camera_base_transform_.child_frame_id_;
-
-    ROS_INFO_STREAM(
-        "transform-> frame_id: " << frame_id << ", child_frame_id: " << frame2_id);
-
-    double x, y, z;
-    x = camera_base_transform_.getOrigin().getX();
-    y = camera_base_transform_.getOrigin().getY();
-    z = camera_base_transform_.getOrigin().getZ();
-
-    double qx, qy, qz, qw;
-    qx = camera_base_transform_.getRotation().getX();
-    qy = camera_base_transform_.getRotation().getY();
-    qz = camera_base_transform_.getRotation().getZ();
-    qw = camera_base_transform_.getRotation().getW();
-
-    double angle = 2 * acos(qw);
-    double t = qx / sqrt(1 - qw * qw) * angle;
-    double u = qy / sqrt(1 - qw * qw) * angle;
-    double v = qz / sqrt(1 - qw * qw) * angle;
-
-    camera_pose_->SetFrom(x, y, z, t, u, v);
-
-    // just for testing --------------------------------------
+  // just for testing --------------------------------------
+  if (debug_mode_) {
     visualization_msgs::Marker camera_marker;
     camera_marker.header.frame_id = "world";
     camera_marker.header.stamp = ros::Time::now();
@@ -211,22 +190,37 @@ void RosEngine::TFCallback(const tf::tfMessage &tf_msg) {
     camera_marker.scale.y = 0.05;
     camera_marker.scale.z = 0.1;
     marker_pub_.publish(camera_marker);
-    // just for testing --------------------------------------
   }
-ROS_INFO("asdfasdf");
+
+  if (set_camera_pose_) {
+    // TODO(gocarlos): stop writing pose when camera has done its work.
+    // currently pose is set also after rosbag has finished.
+    main_engine_->GetTrackingState()->pose_d = camera_pose_;
+    main_engine_->GetTrackingState()->pose_pointCloud = camera_pose_;
+  }
+
+//  }
+
 }
 
 void RosEngine::getMeasurement(ITMPose* pose) {
   ROS_INFO("getMeasurement().");
-  if (!data_available_) {
+  if (!tf_available_) {
     return;
   }
-  std::lock_guard < std::mutex > tf_guard(tf_mutex_);
-  tf_ready_ = false;
+  tf_available_ = false;
 
+  pose = camera_pose_;
+
+//  std::lock_guard < std::mutex > tf_guard(tf_mutex_);
+//  tf_ready_ = false;
+
+  tf_available_ = true;
 }
 
 bool RosEngine::hasMoreMeasurements(void) {
+  ROS_INFO("hasMoreMeasurements().");
+
   if (!tf_ready_) {
     ros::spinOnce();
     return false;
@@ -253,8 +247,8 @@ ITMShortImage* raw_depth_image) {
   uint depth_cols = depth_size.width;
   for (size_t i = 0; i < depth_rows * depth_cols; ++i) {
     raw_depth_infinitam[i] =
-        ((cv_depth_image_->image.data[2 * i + 1] << 8) & 0xFF00) |
-        (cv_depth_image_->image.data[2 * i] & 0xFF);
+    ((cv_depth_image_->image.data[2 * i + 1] << 8) & 0xFF00) |
+    (cv_depth_image_->image.data[2 * i] & 0xFF);
   }
 
   // Setup infinitam rgb frame.
@@ -288,17 +282,22 @@ bool RosEngine::hasMoreImages(void) {
   }
   return true;
 }
-Vector2i RosEngine::getDepthImageSize(void) { return image_size_depth_; }
-Vector2i RosEngine::getRGBImageSize(void) { return image_size_rgb_; }
+Vector2i RosEngine::getDepthImageSize(void) {
+  return image_size_depth_;
+}
+Vector2i RosEngine::getRGBImageSize(void) {
+  return image_size_rgb_;
+}
 
 void RosEngine::extractMeshToPcl(
-    pcl::PointCloud<pcl::PointXYZ>::Ptr out_cloud) {
+    pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_pcl) {
   CHECK_NOTNULL(main_engine_);
-  CHECK_NOTNULL(main_engine_->GetMesh());
+  CHECK_NOTNULL(&point_cloud_pcl);
+  set_camera_pose_ = false;
 
   main_engine_->GetMeshingEngine()->MeshScene(main_engine_->GetMesh(),
                                               main_engine_->GetScene());
-
+  ROS_INFO("got mesh succefully");
   ORUtils::MemoryBlock<ITMMesh::Triangle>* cpu_triangles;
   bool rm_triangle_in_cuda_memory = false;
 
@@ -312,35 +311,35 @@ void RosEngine::extractMeshToPcl(
   } else {
     cpu_triangles = main_engine_->GetMesh()->triangles;
   }
+  ROS_INFO("got cpu_triangles");
 
   ITMMesh::Triangle* triangleArray = cpu_triangles->GetData(MEMORYDEVICE_CPU);
+  ROS_INFO("got triangleArray");
 
-  out_cloud->width = main_engine_->GetMesh()->noTotalTriangles *
-                     3;  // Point cloud has at least 3 points per triangle.
-  out_cloud->height = 1;
-  out_cloud->is_dense = false;
-  out_cloud->points.resize(out_cloud->width * out_cloud->height);
+  point_cloud_pcl->width = main_engine_->GetMesh()->noTotalTriangles * 3;  // Point cloud has at least 3 points per triangle.
+  point_cloud_pcl->height = 1;
+  point_cloud_pcl->is_dense = false;
+  point_cloud_pcl->points.resize(
+      point_cloud_pcl->width * point_cloud_pcl->height);
 
-  ROS_INFO_STREAM("This mesh has " << main_engine_->GetMesh()->noTotalTriangles
-                                   << " triangles");
-
-  const std::string meshFileName = "test.stl";
+  ROS_INFO_STREAM("This mesh has " << point_cloud_pcl->width << " triangles");
 
   // All vertices of the mesh are stored in the pcl point cloud.
   for (int64 i = 0; i < main_engine_->GetMesh()->noTotalTriangles * 3;
-       i = i + 3) {
-    out_cloud->points[i].x = triangleArray[i].p0.x;
-    out_cloud->points[i].y = triangleArray[i].p0.y;
-    out_cloud->points[i].z = triangleArray[i].p0.z;
+      i = i + 3) {
+    point_cloud_pcl->points[i].x = triangleArray[i].p0.x;
+    point_cloud_pcl->points[i].y = triangleArray[i].p0.y;
+    point_cloud_pcl->points[i].z = triangleArray[i].p0.z;
 
-    out_cloud->points[i + 1].x = triangleArray[i].p1.x;
-    out_cloud->points[i + 1].y = triangleArray[i].p1.y;
-    out_cloud->points[i + 1].z = triangleArray[i].p1.z;
+    point_cloud_pcl->points[i + 1].x = triangleArray[i].p1.x;
+    point_cloud_pcl->points[i + 1].y = triangleArray[i].p1.y;
+    point_cloud_pcl->points[i + 1].z = triangleArray[i].p1.z;
 
-    out_cloud->points[i + 2].x = triangleArray[i].p2.x;
-    out_cloud->points[i + 2].y = triangleArray[i].p2.y;
-    out_cloud->points[i + 2].z = triangleArray[i].p2.z;
+    point_cloud_pcl->points[i + 2].x = triangleArray[i].p2.x;
+    point_cloud_pcl->points[i + 2].y = triangleArray[i].p2.y;
+    point_cloud_pcl->points[i + 2].z = triangleArray[i].p2.z;
   }
+  ROS_INFO("got out_cloud");
 
   if (rm_triangle_in_cuda_memory) {
     delete cpu_triangles;
@@ -349,10 +348,15 @@ void RosEngine::extractMeshToPcl(
 
 bool RosEngine::publishMap(std_srvs::Empty::Request& request,
                            std_srvs::Empty::Response& response) {
-  pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_pcl;
-  sensor_msgs::PointCloud2 point_cloud_msg;
+  pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_pcl(
+      new pcl::PointCloud<pcl::PointXYZ>);
+  ROS_INFO("publishMap");
 
   extractMeshToPcl(point_cloud_pcl);
+
+  ROS_INFO("got point cloud");
+
+  sensor_msgs::PointCloud2 point_cloud_msg;
   pcl::toROSMsg(*point_cloud_pcl, point_cloud_msg);
   point_cloud_msg.header.frame_id = camera_frame_id_;
   point_cloud_msg.header.stamp = ros::Time::now();
@@ -366,22 +370,22 @@ bool RosEngine::publishMap(std_srvs::Empty::Request& request,
 #else
 
 namespace InfiniTAM {
-namespace Engine {
+  namespace Engine {
 
-RosEngine::RosEngine(const ros::NodeHandle& nh,
-                     const char*& calibration_filename)
+    RosEngine::RosEngine(const ros::NodeHandle& nh,
+        const char*& calibration_filename)
     : ImageSourceEngine(calibration_filename) {
-  printf("Compiled without ROS support.\n");
-}
-RosEngine::~RosEngine() {}
-void RosEngine::getImages(ITMUChar4Image* rgb_image,
-                          ITMShortImage* raw_depth_image) {
-  return;
-}
-bool RosEngine::hasMoreImages(void) { return false; }
-Vector2i RosEngine::getDepthImageSize(void) { return Vector2i(0, 0); }
-Vector2i RosEngine::getRGBImageSize(void) { return Vector2i(0, 0); }
-}  // namespace Engine
+      printf("Compiled without ROS support.\n");
+    }
+    RosEngine::~RosEngine() {}
+    void RosEngine::getImages(ITMUChar4Image* rgb_image,
+        ITMShortImage* raw_depth_image) {
+      return;
+    }
+    bool RosEngine::hasMoreImages(void) {return false;}
+    Vector2i RosEngine::getDepthImageSize(void) {return Vector2i(0, 0);}
+    Vector2i RosEngine::getRGBImageSize(void) {return Vector2i(0, 0);}
+  }  // namespace Engine
 }  // namespace InfiniTAM
 
 #endif

@@ -3,55 +3,36 @@
 #include "PoseSourceEngine.h"
 
 #include "../Utils/FileUtils.h"
+#include <glog/logging.h>
 
 #include <stdio.h>
 
 namespace InfiniTAM {
 namespace Engine {
 PoseSourceEngine::PoseSourceEngine() {
-//  strncpy(this->poseMask, poseMask, BUF_SIZE);
-//
   currentFrameNo = 0;
   cachedFrameNo = -1;
 
   cached_pose = NULL;
+  LOG(INFO) << "TRACKER_EXTERNAL \n";
+
 }
 
 void PoseSourceEngine::loadPoseIntoCache(void) {
   // TODO(gocarlos): Implement this
-
-//  char str[2048];
-//  FILE* f;
-//  bool success = false;
-//
-//  cached_pose = new ITMPoseMeasurement();
-//
-//  sprintf(str, poseMask, currentFrameNo);
-//  f = fopen(str, "r");
-//  if (f) {
-//    size_t ret =0; //        fscanf(f, "%f %f %f %f %f %f %f");
-//
-//    fclose(f);
-//
-//    if (ret == 9) success = true;
-//  }
-//
-//  if (!success) {
-//    delete cached_pose;
-//    cached_pose = NULL;
-//    printf("error reading file '%s'\n", str);
-//  }
-//
+  LOG(INFO) << "TRACKER_EXTERNAL \n";
 }
 
 bool PoseSourceEngine::hasMoreMeasurements(void) {
   loadPoseIntoCache();
+  LOG(INFO) << "TRACKER_EXTERNAL \n";
 
   return (cached_pose != NULL);
 }
 
 void PoseSourceEngine::getMeasurement(ITMPoseMeasurement* pose) {
   bool bUsedCache = false;
+  LOG(INFO) << "TRACKER_EXTERNAL \n";
 
   if (cached_pose != NULL) {
     pose->R = cached_pose->R;
