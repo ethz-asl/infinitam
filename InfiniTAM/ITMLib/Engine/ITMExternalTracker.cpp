@@ -3,6 +3,7 @@
 #include "ITMExternalTracker.h"
 #include "../../ORUtils/Cholesky.h"
 #include <glog/logging.h>
+//#include "../Utils/ITMLibDefines.h"
 
 #include <math.h>
 
@@ -31,11 +32,9 @@ void ITMExternalTracker::TrackCamera(ITMTrackingState* trackingState,
                                      const ITMView* view) {
   LOG(INFO)<< "TRACKER_EXTERNAL \n";
 
-//  this->view = view;
-//  this->trackingState = trackingState;
-//
-//
-//
+  std::cout << "GetT pose_d: " << trackingState->pose_d->GetT()<<std::endl;
+  std::cout << "GetT pose_pointCloud:" << trackingState->pose_pointCloud->GetT()<<std::endl;
+
 //  x = ((double) rand() / (RAND_MAX));
 //  y = ((double) rand() / (RAND_MAX));
 //  z = ((double) rand() / (RAND_MAX));
@@ -47,14 +46,14 @@ void ITMExternalTracker::TrackCamera(ITMTrackingState* trackingState,
 //
 //  trackingState->pose_d->SetFrom(x, y, z, t, u, v);;
 //
-////  ITMPose currentPara(
-////      view->calib->trafo_rgb_to_depth.calib_inv
-////          * trackingState->pose_d->GetM());
-//
-//// these following will coerce the result back into the chosen
-//// parameterization for rotations
-////  trackingState->pose_d->SetM(
-////      view->calib->trafo_rgb_to_depth.calib * currentPara.GetM());
-//
-//  trackingState->pose_d->Coerce();
+  ITMPose currentPara(
+      view->calib->trafo_rgb_to_depth.calib_inv
+          * trackingState->pose_d->GetM());
+
+// these following will coerce the result back into the chosen
+// parameterization for rotations
+  trackingState->pose_d->SetM(
+      view->calib->trafo_rgb_to_depth.calib * currentPara.GetM());
+
+  trackingState->pose_d->Coerce();
 }

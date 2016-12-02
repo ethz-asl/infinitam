@@ -197,6 +197,8 @@ void RosEngine::TFCallback(const tf::tfMessage &tf_msg) {
     // currently pose is set also after rosbag has finished.
     main_engine_->GetTrackingState()->pose_d = camera_pose_;
     main_engine_->GetTrackingState()->pose_pointCloud = camera_pose_;
+//    main_engine_->GetTrackingState()->requiresFullRendering=true;
+
   }
 
 //  }

@@ -52,12 +52,31 @@ static void SetUpSources(const char* arg1, const char* arg2, const char* arg3,
                                  "/camera/depth/image_raw");
 
   // InfiniTAM settings
-  node_handle.param<float>("viewFrustum_min", internal_settings->sceneParams.viewFrustum_min,
-                                 0.35f);
-  node_handle.param<float>("viewFrustum_max", internal_settings->sceneParams.viewFrustum_max,
-                                 3.0f);
-  //node_handle.param<int>("trackerType", internal_settings->trackerType,
-  //                               3); // TODO(gocarlos): change the tracker type here
+  node_handle.param<float>("viewFrustum_min",
+                           internal_settings->sceneParams.viewFrustum_min,
+                           0.35f);
+  node_handle.param<float>("viewFrustum_max",
+                           internal_settings->sceneParams.viewFrustum_max,
+                           3.0f);
+
+//  int trackerType;  // TODO(gocarlos): how to make this better? not working
+//  node_handle.param<int>("trackerType", trackerType, 1);
+//  ROS_INFO_STREAM("trackerType :"<<trackerType);
+//
+//  switch (trackerType) {
+//    case 1: {
+//      internal_settings->trackerType =
+//          static_cast<ITMLibSettings::TrackerType>(1);
+//      break;
+//    }
+//    case 5: {
+//      internal_settings->trackerType =
+//          static_cast<ITMLibSettings::TrackerType>(5);
+//      break;
+//    }
+//    default:
+//      break;
+//  }
 
   printf("using calibration file: %s\n", calibration_filename);
 
@@ -130,7 +149,7 @@ static void SetUpSources(const char* arg1, const char* arg2, const char* arg3,
                                        (RosEngine*) image_source);
 
     // Get camera pose from ROS topic, only if tracker type is set to external.
-    if(internal_settings->trackerType==1){
+    if (internal_settings->trackerType == 1) {
       tf_sub_ = node_handle.subscribe("/tf", 10, &RosEngine::TFCallback,
                                       (RosEngine*) image_source);
     }
@@ -231,7 +250,7 @@ try {
   ROS_INFO("Initialized.");
   UIEngine::Instance()->Run();
   ROS_INFO("Done.");
-  image_source->set_camera_pose_=false;
+  image_source->set_camera_pose_ = false;
   UIEngine::Instance()->Shutdown();
 
   delete main_engine;
