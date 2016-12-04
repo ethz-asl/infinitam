@@ -149,10 +149,10 @@ static void SetUpSources(const char* arg1, const char* arg2, const char* arg3,
                                        (RosEngine*) image_source);
 
     // Get camera pose from ROS topic, only if tracker type is set to external.
-    if (internal_settings->trackerType == 1) {
+//    if (internal_settings->trackerType == 1) {
       tf_sub_ = node_handle.subscribe("/tf", 10, &RosEngine::TFCallback,
                                       (RosEngine*) image_source);
-    }
+//    }
 
     if (image_source->getDepthImageSize().x == 0) {
       delete image_source;

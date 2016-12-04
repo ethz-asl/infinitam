@@ -44,7 +44,8 @@ class RosEngine : public ImageSourceEngine, public PoseSourceEngine {
   bool rgb_ready_;
   bool depth_ready_;
   bool tf_ready_;
-  bool rgb_info_ready_;
+  bool first_time_tf_available_;
+  bool rgb_info_ready_, okay_to_send;
   bool depth_info_ready_;
   bool data_available_, tf_available_;
   bool debug_mode_;
@@ -66,8 +67,21 @@ class RosEngine : public ImageSourceEngine, public PoseSourceEngine {
   tf::TransformListener listener;
   ros::Publisher complete_point_cloud_pub_;
   ros::ServiceServer publish_scene_service_;
-  tf::StampedTransform camera_base_transform_;
+  tf::StampedTransform camera_world_transform_current_;
+  tf::StampedTransform camera_world_transform_at_start_;
+  tf::StampedTransform camera_world_transform_relative_;
+  tf::StampedTransform initial_current_camera_transform_;
+  tf::StampedTransform tf_initial_current_camera_transform_;
 
+  // parameters for the position and rotation, from tf
+  double tf_pos_x, tf_pos_y, tf_pos_z, tf_rot_t, tf_rot_u, tf_rot_v, tf_rot_qx,
+      tf_rot_qy, tf_rot_qz, tf_rot_qw, tf_rot_angle;
+  tf::Vector3 tf_rot_axis;
+  Vector3f rot, tra;
+
+  // parameter for the position and rotation, from infinitam (only for testing)
+  double infinitam_pos_x, infinitam_pos_y, infinitam_pos_z, infinitam_rot_x,
+      infinitam_rot_y, infinitam_rot_z;
  public:
   RosEngine(ros::NodeHandle& nh, const char*& calibration_filename);
 
