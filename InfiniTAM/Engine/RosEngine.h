@@ -70,8 +70,9 @@ class RosEngine : public ImageSourceEngine, public PoseSourceEngine {
   ros::Publisher complete_point_cloud_pub_;
   ros::ServiceServer publish_scene_service_;
   tf::StampedTransform tf_world_to_camera_transform_current_;
+  tf::StampedTransform tf_world_to_camera_transform_current_test;
   tf::StampedTransform tf_world_to_camera_transform_at_start_;
-  tf::StampedTransform tf_world_to_camera_transform_relative_;
+  tf::StampedTransform tf_infinitam_origin_to_camera_transform_relative_;
   tf::StampedTransform tf_initial_to_camera_transform_current_;
   tf::StampedTransform infinitam_to_camera_transform_current_;
 
