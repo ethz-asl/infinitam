@@ -137,6 +137,7 @@ void RosEngine::depthCameraInfoCallback(
 
 // Get the pose of the camera from the forward kinematics of the robot.
 void RosEngine::TFCallback(const tf::tfMessage& tf_msg) {
+
   try {
     // get transform from world to camera frame.
     listener.lookupTransform(world_frame_id_, camera_frame_id_, ros::Time(0),
@@ -146,6 +147,15 @@ void RosEngine::TFCallback(const tf::tfMessage& tf_msg) {
     if (first_time_tf_available_) {
       tf_world_to_camera_transform_at_start_ =
           tf_world_to_camera_transform_current_;
+      // set the infinitam inertial coordinate system.
+      Vector3f zero_vector;
+      zero_vector.x = zero_vector.y = zero_vector.z = 0;
+      Matrix3f identity;
+      identity.setZeros();
+      identity.m00 = identity.m11 = identity.m22 = 1;
+      main_engine_->GetTrackingState()->pose_d->SetT(zero_vector);
+      main_engine_->GetTrackingState()->pose_d->SetR(identity);
+
       // origin of the map for infinitam
       br.sendTransform(
           tf::StampedTransform(tf_world_to_camera_transform_at_start_,
@@ -213,11 +223,6 @@ void RosEngine::TFCallback(const tf::tfMessage& tf_msg) {
         tf_world_to_infinitam_origion_rotation
             * (tf_world_to_infinitam_origin_translation_in_world_frame);
 
-//    ROS_INFO_STREAM(
-//        "tf translation -rotated: \n" << -tf_relative_translation_rotated.getX() << " " << -tf_relative_translation_rotated.getY() << " " << -tf_relative_translation_rotated.getZ());
-//    ROS_INFO_STREAM(
-//        "tf rotation: \n" << tf_infinitam_origin_to_camera_transform_relative_.getBasis().getColumn(0).getX() << " " << tf_infinitam_origin_to_camera_transform_relative_.getBasis().getColumn(0).getY() << " " << tf_infinitam_origin_to_camera_transform_relative_.getBasis().getColumn(0).getZ() << "\n" << tf_infinitam_origin_to_camera_transform_relative_.getBasis().getColumn(1).getX() << " " << tf_infinitam_origin_to_camera_transform_relative_.getBasis().getColumn(1).getY() << " " << tf_infinitam_origin_to_camera_transform_relative_.getBasis().getColumn(1).getZ() << "\n" << tf_infinitam_origin_to_camera_transform_relative_.getBasis().getColumn(2).getX() << " " << tf_infinitam_origin_to_camera_transform_relative_.getBasis().getColumn(2).getY() << " " << tf_infinitam_origin_to_camera_transform_relative_.getBasis() .getColumn(2) .getZ());
-
     Vector3f infinitam_translation = main_engine_->GetTrackingState()->pose_d
         ->GetT();
     Matrix3f infinitam_rotation =
@@ -245,14 +250,13 @@ void RosEngine::TFCallback(const tf::tfMessage& tf_msg) {
     infinitam_to_camera_transform_current_.setBasis(infinitam_rotation_);
     std::cout
         << "infinitam_translation trafo-----------------------------------------: \n"
-        << infinitam_to_camera_transform_current_.getOrigin().getX()
-        << " "
-        << infinitam_to_camera_transform_current_.getOrigin().getY()
-        << " "
+        << infinitam_to_camera_transform_current_.getOrigin().getX() << " "
+        << infinitam_to_camera_transform_current_.getOrigin().getY() << " "
         << infinitam_to_camera_transform_current_.getOrigin().getZ()
         << std::endl;
-    ROS_INFO_STREAM("infinitam_translation//////////////////////:\n" << infinitam_translation);
-    ROS_INFO_STREAM("infinitam_rotation:\n" << infinitam_rotation);
+    std::cout << "infinitam_translation//////////////////////:\n"
+              << infinitam_translation;
+    std::cout << "infinitam_rotation:\n" << infinitam_rotation;
 
     tf::Vector3 tf_world_camera_translation_test_in_world_frame,
         tf_infinitam_origin_to_current_camera_translation_test_in_world_frame,
@@ -325,7 +329,8 @@ void RosEngine::TFCallback(const tf::tfMessage& tf_msg) {
         tf_infinitam_origin_to_camera_current_translation_in_world_frame,
         tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame,
         tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame_rotated;
-    tf_infinitam_origin_to_camera_transform_relative_.frame_id_ = "tf_camera_initial";
+    tf_infinitam_origin_to_camera_transform_relative_.frame_id_ =
+        "tf_camera_initial";
     tf_infinitam_origin_to_camera_transform_relative_.stamp_ = ros::Time::now();
 
     tf_infinitam_origin_to_camera_current_rotation =
@@ -350,19 +355,25 @@ void RosEngine::TFCallback(const tf::tfMessage& tf_msg) {
             * tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame;
     std::cout
         << "tf trafo infinitam to camera test--------------------------------: \n"
-        << tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame.getX()
+        << tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame
+            .getX()
         << " "
-        << tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame.getY()
+        << tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame
+            .getY()
         << " "
-        << tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame.getZ()
+        << tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame
+            .getZ()
         << std::endl;
     std::cout
         << "tf infinitam to camera test//////////////////////////////: \n"
-        << -tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame_rotated.getX()
+        << -tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame_rotated
+            .getX()
         << " "
-        << -tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame_rotated.getY()
+        << -tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame_rotated
+            .getY()
         << " "
-        << -tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame_rotated.getZ()
+        << -tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame_rotated
+            .getZ()
         << std::endl;
     std::cout
         << "tf infinitam to camera test: \n"
@@ -418,13 +429,54 @@ void RosEngine::TFCallback(const tf::tfMessage& tf_msg) {
     if (set_camera_pose_) {
       // TODO(gocarlos): stop writing pose when camera has done its work.
       // currently pose is set also after rosbag has finished.
-      //            main_engine_->GetTrackingState()->pose_d = camera_pose_;
-      //            main_engine_->GetTrackingState()->pose_pointCloud =
-      //            camera_pose_;
+
+      Vector3f infinitam_translation_vector;
+      infinitam_translation_vector.x =
+          -tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame_rotated
+              .getX();
+      infinitam_translation_vector.y =
+          -tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame_rotated
+              .getY();
+      infinitam_translation_vector.z =
+          -tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame_rotated
+              .getZ();
+      Matrix3f infinitam_rotation_matrix;
+      infinitam_rotation_matrix.m00 =
+          tf_infinitam_origin_to_camera_transform_relative_.getBasis().getColumn(
+              0).getX();
+      infinitam_rotation_matrix.m10 =
+          tf_infinitam_origin_to_camera_transform_relative_.getBasis().getColumn(
+              0).getY();
+      infinitam_rotation_matrix.m20 =
+          tf_infinitam_origin_to_camera_transform_relative_.getBasis().getColumn(
+              0).getZ();
+      infinitam_rotation_matrix.m01 =
+          tf_infinitam_origin_to_camera_transform_relative_.getBasis().getColumn(
+              1).getX();
+      infinitam_rotation_matrix.m11 =
+          tf_infinitam_origin_to_camera_transform_relative_.getBasis().getColumn(
+              1).getY();
+      infinitam_rotation_matrix.m21 =
+          tf_infinitam_origin_to_camera_transform_relative_.getBasis().getColumn(
+              1).getZ();
+      infinitam_rotation_matrix.m02 =
+          tf_infinitam_origin_to_camera_transform_relative_.getBasis().getColumn(
+              2).getX();
+      infinitam_rotation_matrix.m12 =
+          tf_infinitam_origin_to_camera_transform_relative_.getBasis().getColumn(
+              2).getY();
+      infinitam_rotation_matrix.m22 =
+          tf_infinitam_origin_to_camera_transform_relative_.getBasis().getColumn(
+              2).getZ();
+
+      main_engine_->GetTrackingState()->pose_d->SetT(
+          infinitam_translation_vector);
+      main_engine_->GetTrackingState()->pose_d->SetR(infinitam_rotation_matrix);
     }
   } catch (tf::TransformException& ex) {
     ROS_ERROR("%s", ex.what());
   }
+
 }
 
 void RosEngine::getMeasurement(ITMPose* pose) {
