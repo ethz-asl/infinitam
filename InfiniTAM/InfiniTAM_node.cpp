@@ -59,24 +59,11 @@ static void SetUpSources(const char* arg1, const char* arg2, const char* arg3,
                            internal_settings->sceneParams.viewFrustum_max,
                            3.0f);
 
-//  int trackerType;  // TODO(gocarlos): how to make this better? not working
+//  int trackerType;
 //  node_handle.param<int>("trackerType", trackerType, 1);
-//  ROS_INFO_STREAM("trackerType :"<<trackerType);
 //
-//  switch (trackerType) {
-//    case 1: {
-//      internal_settings->trackerType =
-//          static_cast<ITMLibSettings::TrackerType>(1);
-//      break;
-//    }
-//    case 5: {
-//      internal_settings->trackerType =
-//          static_cast<ITMLibSettings::TrackerType>(5);
-//      break;
-//    }
-//    default:
-//      break;
-//  }
+//  internal_settings->trackerType =
+//      static_cast<ITMLibSettings::TrackerType>(trackerType);
 
   printf("using calibration file: %s\n", calibration_filename);
 
@@ -150,8 +137,8 @@ static void SetUpSources(const char* arg1, const char* arg2, const char* arg3,
 
     // Get camera pose from ROS topic, only if tracker type is set to external.
 //    if (internal_settings->trackerType == 1) {
-      tf_sub_ = node_handle.subscribe("/tf", 10, &RosEngine::TFCallback,
-                                      (RosEngine*) image_source);
+    tf_sub_ = node_handle.subscribe("/tf", 10, &RosEngine::TFCallback,
+                                    (RosEngine*) image_source);
 //    }
 
     if (image_source->getDepthImageSize().x == 0) {

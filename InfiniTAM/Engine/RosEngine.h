@@ -26,10 +26,11 @@
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/image_encodings.h>
-#include <tf/transform_listener.h>
-#include <tf/transform_datatypes.h>
+
 #include <std_srvs/Empty.h>
 #include <visualization_msgs/Marker.h>
+#include <tf/transform_broadcaster.h>
+#include <tf/transform_datatypes.h>
 #include <tf/transform_listener.h>
 #include "../ITMLib/Utils/ITMLibDefines.h"
 
@@ -65,13 +66,14 @@ class RosEngine : public ImageSourceEngine, public PoseSourceEngine {
 
   // create a ROS transformation listener
   tf::TransformListener listener;
+  tf::TransformBroadcaster br;
   ros::Publisher complete_point_cloud_pub_;
   ros::ServiceServer publish_scene_service_;
-  tf::StampedTransform camera_world_transform_current_;
-  tf::StampedTransform camera_world_transform_at_start_;
-  tf::StampedTransform camera_world_transform_relative_;
-  tf::StampedTransform initial_current_camera_transform_;
-  tf::StampedTransform tf_initial_current_camera_transform_;
+  tf::StampedTransform tf_world_to_camera_transform_current_;
+  tf::StampedTransform tf_world_to_camera_transform_at_start_;
+  tf::StampedTransform tf_world_to_camera_transform_relative_;
+  tf::StampedTransform tf_initial_to_camera_transform_current_;
+  tf::StampedTransform infinitam_to_camera_transform_current_;
 
   // parameters for the position and rotation, from tf
   double tf_pos_x, tf_pos_y, tf_pos_z, tf_rot_t, tf_rot_u, tf_rot_v, tf_rot_qx,

@@ -7,8 +7,6 @@
 #include <stdexcept>
 #include <string>
 
-#include <tf/transform_broadcaster.h>
-
 #include "../Utils/FileUtils.h"
 
 #ifdef COMPILE_WITH_Ros
@@ -141,118 +139,100 @@ void RosEngine::TFCallback(const tf::tfMessage& tf_msg) {
   try {
     // get transform from world to camera frame.
     listener.lookupTransform(world_frame_id_, camera_frame_id_, ros::Time(0),
-                             camera_world_transform_current_);
+                             tf_world_to_camera_transform_current_);
 
     // get the first transformation between the world and the camera.
     if (first_time_tf_available_) {
-      camera_world_transform_at_start_ = camera_world_transform_current_;
+      tf_world_to_camera_transform_at_start_ =
+          tf_world_to_camera_transform_current_;
+      // origin of the map for infinitam
+      br.sendTransform(
+          tf::StampedTransform(tf_world_to_camera_transform_at_start_,
+                               ros::Time::now(), "world", "tf_camera_initial"));
       ROS_INFO("Got first tf Message");
       first_time_tf_available_ = false;
       okay_to_send = true;
     }
+    listener.lookupTransform("tf_camera_initial", "sr300_depth_optical_frame",
+                             ros::Time(0),
+                             tf_world_to_camera_transform_relative_);
 
-    // calculate the relative transformation between start and current position.
-    camera_world_transform_relative_.setOrigin(
-        camera_world_transform_current_.getOrigin() -
-        camera_world_transform_at_start_.getOrigin());
+    ROS_INFO_STREAM(
+        "tf translation: \n"
+        << tf_world_to_camera_transform_relative_.getOrigin().getX() << " "
+        << tf_world_to_camera_transform_relative_.getOrigin().getY() << " "
+        << tf_world_to_camera_transform_relative_.getOrigin().getZ());
+    ROS_INFO_STREAM(
+        "tf rotation: \n"
+        << tf_world_to_camera_transform_relative_.getBasis().getColumn(0).getX()
+        << " "
+        << tf_world_to_camera_transform_relative_.getBasis().getColumn(0).getY()
+        << " "
+        << tf_world_to_camera_transform_relative_.getBasis().getColumn(0).getZ()
+        << "\n"
+        << tf_world_to_camera_transform_relative_.getBasis().getColumn(1).getX()
+        << " "
+        << tf_world_to_camera_transform_relative_.getBasis().getColumn(1).getY()
+        << " "
+        << tf_world_to_camera_transform_relative_.getBasis().getColumn(1).getZ()
+        << "\n"
+        << tf_world_to_camera_transform_relative_.getBasis().getColumn(2).getX()
+        << " "
+        << tf_world_to_camera_transform_relative_.getBasis().getColumn(2).getY()
+        << " "
+        << tf_world_to_camera_transform_relative_.getBasis().getColumn(2).getZ()
+        << "\n");
 
-    camera_world_transform_relative_.setRotation(
-        camera_world_transform_current_.getRotation() -
-        camera_world_transform_at_start_.getRotation());
+    Vector3f infinitam_translation =
+        main_engine_->GetTrackingState()->pose_d->GetT();
+    Matrix3f infinitam_rotation =
+        main_engine_->GetTrackingState()->pose_d->GetR();
+    tf::Matrix3x3 infinitam_rotation_;
+    infinitam_rotation_.setValue(
+        infinitam_rotation.m00, infinitam_rotation.m01, infinitam_rotation.m02,
+        infinitam_rotation.m10, infinitam_rotation.m11, infinitam_rotation.m12,
+        infinitam_rotation.m20, infinitam_rotation.m21, infinitam_rotation.m22);
 
-    // rotate vector, bring vector from world frame to initial sr300 frame.
-    Eigen::Quaterniond q(camera_world_transform_at_start_.getRotation().getX(),
-                         camera_world_transform_at_start_.getRotation().getY(),
-                         camera_world_transform_at_start_.getRotation().getZ(),
-                         camera_world_transform_at_start_.getRotation().getW());
-    q.normalize();
-    Eigen::Vector3d v;
-    v << camera_world_transform_relative_.getOrigin().getX(),
-        camera_world_transform_relative_.getOrigin().getY(),
-        camera_world_transform_relative_.getOrigin().getZ();
-    Eigen::Quaterniond p;
-    p.w() = 0;
-    p.vec() = v;
-    Eigen::Quaterniond rotatedP = q * p * q.inverse();
-    Eigen::Vector3d rotatedV = rotatedP.vec();
+    tf::Vector3 camera_translation_original, camera_translation_rotated;
+    camera_translation_original.setX(infinitam_translation.x);
+    camera_translation_original.setY(infinitam_translation.y);
+    camera_translation_original.setZ(infinitam_translation.z);
+    camera_translation_rotated =
+        infinitam_rotation_* (camera_translation_original);
 
-    // calculate the relative pose of the camera.
-    tf_pos_x = camera_world_transform_current_.getOrigin().getX();
-    tf_pos_y = camera_world_transform_current_.getOrigin().getY();
-    tf_pos_z = camera_world_transform_current_.getOrigin().getZ();
-    tf_rot_qx = camera_world_transform_current_.getRotation().getX();
-    tf_rot_qy = camera_world_transform_current_.getRotation().getY();
-    tf_rot_qz = camera_world_transform_current_.getRotation().getZ();
-    tf_rot_qw = camera_world_transform_current_.getRotation().getW();
-    tf_rot_axis = camera_world_transform_current_.getRotation().getAxis();
-    tf_rot_angle = camera_world_transform_current_.getRotation().getAngle();
-    tf_rot_t = tf_rot_axis.getX();
-    tf_rot_u = tf_rot_axis.getY();
-    tf_rot_v = tf_rot_axis.getZ();
+    infinitam_to_camera_transform_current_.frame_id_ = "tf_camera_initial";
+    infinitam_to_camera_transform_current_.stamp_ = ros::Time::now();
 
-    ROS_INFO_STREAM("tf:       "
-                    << " tx:" << tf_pos_x << " ty:" << tf_pos_y
-                    << " tz:" << tf_pos_z << " rx:" << tf_rot_t
-                    << " ry:" << tf_rot_u << " rz:" << tf_rot_v);
+    infinitam_to_camera_transform_current_.setOrigin(tf::Vector3(
+        -camera_translation_rotated.getX(),
+        -camera_translation_rotated.getY(),
+        -camera_translation_rotated.getZ()));
 
-    main_engine_->GetTrackingState()->pose_d->GetParams(tra, rot);
-    infinitam_pos_x = tra.x;
-    infinitam_pos_y = tra.y;
-    infinitam_pos_z = tra.z;
+    infinitam_to_camera_transform_current_.setBasis(infinitam_rotation_);
+    ROS_INFO_STREAM("infinitam_translation:\n" << infinitam_translation);
+    ROS_INFO_STREAM("infinitam_rotation:\n" << infinitam_rotation);
 
-    infinitam_rot_x = rot.x;
-    infinitam_rot_y = rot.y;
-    infinitam_rot_z = rot.z;
-    ROS_INFO_STREAM("infinitam:"
-                    << " tx:" << infinitam_pos_x << " ty:" << infinitam_pos_y
-                    << " tz:" << infinitam_pos_z << " rx:" << infinitam_rot_x
-                    << " ry:" << infinitam_rot_y << " rz:" << infinitam_rot_z);
-    double angle;
-    angle = sqrt(infinitam_rot_x * infinitam_rot_x +
-                 infinitam_rot_y * infinitam_rot_y +
-                 infinitam_rot_z * infinitam_rot_z);
-    tf::Vector3 vec;
-    vec.setX(infinitam_rot_x);
-    vec.setX(infinitam_rot_y);
-    vec.setX(infinitam_rot_z);
-    vec.normalize();
-
-    tf_initial_current_camera_transform_.frame_id_ = "tf_sr300_initial";
-    tf_initial_current_camera_transform_.stamp_ = ros::Time::now();
-    tf_initial_current_camera_transform_.setOrigin(
-        tf::Vector3(rotatedV[0], rotatedV[1], rotatedV[2]));
-    tf::Quaternion pose_d_quad2;
-    pose_d_quad2.setRotation(vec, angle);
-    tf_initial_current_camera_transform_.setRotation(pose_d_quad2);
-
-    initial_current_camera_transform_.frame_id_ = "tf_sr300_initial";
-    initial_current_camera_transform_.stamp_ = ros::Time::now();
-    initial_current_camera_transform_.setOrigin(
-        tf::Vector3(infinitam_pos_x, infinitam_pos_y, infinitam_pos_z));
-    tf::Quaternion pose_d_quad;
-    pose_d_quad.setRotation(vec, angle);
-    initial_current_camera_transform_.setRotation(pose_d_quad);
+    tf_initial_to_camera_transform_current_.frame_id_ = "tf_camera_initial";
+    tf_initial_to_camera_transform_current_.stamp_ = ros::Time::now();
+    tf_initial_to_camera_transform_current_.setOrigin(tf::Vector3(0, 0, 0));
+    tf_initial_to_camera_transform_current_.setRotation(
+        tf::Quaternion(0, 0, 0, 1));
 
     if (okay_to_send) {
-      tf::TransformBroadcaster br;
       // origin of the map for infinitam
-      br.sendTransform(tf::StampedTransform(camera_world_transform_at_start_,
-                                            ros::Time::now(), "world",
-                                            "tf_sr300_initial"));
-      // current position of the camera
+      br.sendTransform(
+          tf::StampedTransform(tf_world_to_camera_transform_at_start_,
+                               ros::Time::now(), "world", "tf_camera_initial"));
+      // current position of the camera in tf
       br.sendTransform(tf::StampedTransform(
-          tf_initial_current_camera_transform_, ros::Time::now(),
-          "tf_sr300_initial", "tf_sr300_relative"));
+          tf_world_to_camera_transform_relative_, ros::Time::now(),
+          "tf_camera_initial", "tf_camera_relative"));
+      // current position of the camera from infinitam
       br.sendTransform(tf::StampedTransform(
-          initial_current_camera_transform_, ros::Time::now(),
-          "tf_sr300_initial", "infinitam_pose"));
-      ROS_INFO("tf published");
+          infinitam_to_camera_transform_current_, ros::Time::now(),
+          "tf_camera_initial", "infinitam_pose"));
+      //      ROS_INFO("tf published");
     }
-
-    //    camera_pose_->SetFrom(tf_pos_x, tf_pos_y, tf_pos_z, tf_rot_t,
-    //    tf_rot_u,
-    //                          tf_rot_v);
-    camera_pose_->SetFrom(tf_pos_x, tf_pos_y, tf_pos_z, 0, 0, 0);
 
     if (set_camera_pose_) {
       // TODO(gocarlos): stop writing pose when camera has done its work.
