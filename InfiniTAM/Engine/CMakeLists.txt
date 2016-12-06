@@ -41,8 +41,8 @@ CLIEngine.cpp
 CLIEngine.h
 ImageSourceEngine.cpp
 ImageSourceEngine.h
-PoseSourceEngine.cpp #
-PoseSourceEngine.h #
+PoseSourceEngine.cpp
+PoseSourceEngine.h
 IMUSourceEngine.cpp
 IMUSourceEngine.h
 Kinect2Engine.cpp
@@ -55,6 +55,10 @@ RealSenseEngine.cpp
 RealSenseEngine.h
 RosEngine.cpp
 RosEngine.h
+RosImageSourceEngine.cpp
+RosImageSourceEngine.h
+RosPoseSourceEngine.cpp
+RosPoseSourceEngine.h
 UIEngine.cpp
 UIEngine.h
 )

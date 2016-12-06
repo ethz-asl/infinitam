@@ -23,6 +23,8 @@ class PoseSourceEngine {
   PoseSourceEngine();
   ~PoseSourceEngine() {
   }
+  ITMMainEngine* main_engine_ = NULL;
+  bool set_camera_pose_;
 
   bool hasMoreMeasurements(void);
   void getMeasurement(ITMPoseMeasurement* pose);
