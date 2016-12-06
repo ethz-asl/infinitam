@@ -4,6 +4,12 @@ project(infinitam)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
+IF(WITH_CUDA)
+    list(APPEND CUDA_NVCC_FLAGS "-std=c++11")
+ELSE()
+    SET(CUDA_PROPAGATE_HOST_FLAGS OFF)
+ENDIF()
+
 macro(CANONIFY_BOOL var)
   if (${var})
     set(${var} TRUE)
@@ -98,3 +104,4 @@ IF(WITH_CUDA)
 ELSE()
   target_link_libraries(InfiniTAM_node)
 ENDIF()
+
