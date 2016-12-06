@@ -38,53 +38,59 @@
 
 namespace InfiniTAM {
 namespace Engine {
-class RosEngine : public ImageSourceEngine, public PoseSourceEngine {
+class RosEngine : public ImageSourceEngine {
  private:
   cv_bridge::CvImagePtr cv_rgb_image_;
   cv_bridge::CvImagePtr cv_depth_image_;
+  //! True if the RGB data is available.
   bool rgb_ready_;
+  //! True if the Depth data is available.
   bool depth_ready_;
-  bool tf_ready_;
+  //! True if a tf message was received.
   bool first_time_tf_available_;
-  bool rgb_info_ready_, okay_to_send;
+  //! True if one wants to broadcast the transforms calculated here.
+  bool broadcast_transformations;
+  //! True if the Depth info is available.
+  bool rgb_info_ready_;
+  //! True if the Depth info is available.
   bool depth_info_ready_;
-  bool data_available_, tf_available_;
-  bool debug_mode_;
+
+  bool data_available_;
+  //! ROS topic name for the incoming rgb messages.
   std::string rgb_camera_info_topic_;
+  //! ROS Topic name for the incoming depth messages.
   std::string depth_camera_info_topic_;
+  //! Name for the depth camera frame id in TF.
   std::string camera_frame_id_;
+  //! Name for the fixed frame in TF.
   std::string world_frame_id_;
+  //! ROS topic name where the generated complete cloud is published.
   std::string complete_cloud_topic_;
   std::mutex rgb_mutex_;
   std::mutex depth_mutex_;
-  std::mutex tf_mutex_;
   Vector2i image_size_rgb_, image_size_depth_;
   sensor_msgs::CameraInfo rgb_info_;
   sensor_msgs::CameraInfo depth_info_;
-  ITMPose* camera_pose_;
-  ros::Publisher marker_pub_;
-
-  // create a ROS transformation listener
-  tf::TransformListener listener;
-  tf::TransformBroadcaster br;
-  ros::Publisher complete_point_cloud_pub_;
+  //! ROS service name, when called the current mesh is transformed into a point cloud and published.
   ros::ServiceServer publish_scene_service_;
+  //! ROS publisher to send out the complete cloud.
+  ros::Publisher complete_point_cloud_pub_;
+
+  tf::TransformListener listener;
+  tf::TransformBroadcaster broadcaster;
+
+  // Infinitam Vector, represents translation from the infititam origin to the camera pose.
+  Vector3f infinitam_translation_vector_;
+  // Infinitam Matrix, represents rotation from the infititam origin to the camera pose.
+  Matrix3f infinitam_rotation_matrix_;
+
   tf::StampedTransform tf_world_to_camera_transform_current_;
-  tf::StampedTransform tf_world_to_camera_transform_current_test;
   tf::StampedTransform tf_world_to_camera_transform_at_start_;
   tf::StampedTransform tf_infinitam_origin_to_camera_transform_relative_;
-  tf::StampedTransform tf_initial_to_camera_transform_current_;
-  tf::StampedTransform infinitam_to_camera_transform_current_;
-
-  // parameters for the position and rotation, from tf
-  double tf_pos_x, tf_pos_y, tf_pos_z, tf_rot_t, tf_rot_u, tf_rot_v, tf_rot_qx,
-      tf_rot_qy, tf_rot_qz, tf_rot_qw, tf_rot_angle;
-  tf::Vector3 tf_rot_axis;
-  Vector3f rot, tra;
-
-  // parameter for the position and rotation, from infinitam (only for testing)
-  double infinitam_pos_x, infinitam_pos_y, infinitam_pos_z, infinitam_rot_x,
-      infinitam_rot_y, infinitam_rot_z;
+  tf::Matrix3x3 tf_infinitam_origin_to_camera_current_rotation;
+  tf::Vector3 tf_infinitam_origin_to_camera_current_translation_in_world_frame,
+      tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame,
+      tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame_rotated;
  public:
   RosEngine(ros::NodeHandle& nh, const char*& calibration_filename);
 
@@ -95,21 +101,19 @@ class RosEngine : public ImageSourceEngine, public PoseSourceEngine {
   void depthCameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg);
   void TFCallback(const tf::tfMessage &tf_msg);
 
-  // PoseSourceEngine
-  void getMeasurement(ITMPose* pose);
-  bool hasMoreMeasurements(void);
-
   // ImageSourceEngine
   bool hasMoreImages(void);
-  void getImages(ITMUChar4Image* rgb, ITMShortImage* raw_depth);
+  void getImages(ITMUChar4Image*rgb, ITMShortImage* raw_depth);
   Vector2i getDepthImageSize(void);
   Vector2i getRGBImageSize(void);
 
-  // get mesh from Main Engine and return ROS PointCloud2
+  //! Get mesh from Main Engine and return pcl pointer.
   void extractMeshToPcl(pcl::PointCloud<pcl::PointXYZ>::Ptr out_cloud);
-  // ROS Service Callback method which published the mesh as PointCloud
+
+  //! ROS Service Callback method.
   bool publishMap(std_srvs::Empty::Request& request,
-                  std_srvs::Empty::Response& response);
-};
-}  // namespace Engine
-}  // namespace InfiniTAM
+      std_srvs::Empty::Response& response);
+    };
+  }
+  // namespace Engine
+  }// namespace InfiniTAM
