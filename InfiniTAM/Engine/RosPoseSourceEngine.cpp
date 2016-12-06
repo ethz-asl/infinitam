@@ -155,6 +155,24 @@ void RosPoseSourceEngine::TFCallback(const tf::tfMessage& tf_msg) {
   }
 }
 
+
+bool RosPoseSourceEngine::hasMoreMeasurements(void)
+{
+  return (cached_pose != NULL);
+}
+
+void RosPoseSourceEngine::getMeasurement(ITMPoseMeasurement *pose)
+{
+  if (cached_pose != NULL)
+  {
+    ROS_INFO("Using Pose data...");
+    pose->R = cached_pose->R;
+    pose->T = cached_pose->T;
+    delete cached_pose;
+    cached_pose = NULL;
+  }
+}
+
 }  // namespace Engine
 }  // namespace InfiniTAM
 #else

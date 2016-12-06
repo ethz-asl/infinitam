@@ -17,13 +17,13 @@ namespace Engine {
 class UIEngine {
   static UIEngine* instance;
 
-  enum MainLoopAction {
-    PROCESS_PAUSED,
-    PROCESS_FRAME,
-    PROCESS_VIDEO,
-    EXIT,
-    SAVE_TO_DISK
-  } mainLoopAction;
+//  enum MainLoopAction {
+//    PROCESS_PAUSED,
+//    PROCESS_FRAME,
+//    PROCESS_VIDEO,
+//    EXIT,
+//    SAVE_TO_DISK
+//  } mainLoopAction;
 
   struct UIColourMode {
     const char* name;
@@ -70,6 +70,13 @@ class UIEngine {
     if (instance == NULL) instance = new UIEngine();
     return instance;
   }
+  enum MainLoopAction {
+    PROCESS_PAUSED,
+    PROCESS_FRAME,
+    PROCESS_VIDEO,
+    EXIT,
+    SAVE_TO_DISK
+  } mainLoopAction;
 
   static void glutDisplayFunction();
   static void glutIdleFunction();

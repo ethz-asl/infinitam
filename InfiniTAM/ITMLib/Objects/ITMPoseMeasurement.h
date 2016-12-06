@@ -16,7 +16,7 @@ namespace ITMLib
 
 			ITMPoseMeasurement()
 			{
-			  LOG(INFO) << "TRACKER_EXTERNAL \n";
+			  LOG(INFO) << "ITMPoseMeasurement \n";
 
         this->R.setIdentity();
         this->T.x=0;
@@ -26,7 +26,7 @@ namespace ITMLib
 
 			ITMPoseMeasurement(const Matrix3f & R, const Vector3f T)
 			{
-			  LOG(INFO) << "TRACKER_EXTERNAL \n";
+			  LOG(INFO) << "ITMPoseMeasurement \n";
 
         this->R = R;
         this->T = T;
@@ -34,7 +34,7 @@ namespace ITMLib
 
 			void SetFrom(const ITMPoseMeasurement *measurement)
 			{
-			  LOG(INFO) << "TRACKER_EXTERNAL \n";
+			  LOG(INFO) << "SetFrom \n";
 
         this->R = measurement->R;
         this->T = measurement->T;

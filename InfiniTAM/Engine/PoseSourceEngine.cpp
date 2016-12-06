@@ -14,25 +14,25 @@ PoseSourceEngine::PoseSourceEngine() {
   cachedFrameNo = -1;
 
   cached_pose = NULL;
-  LOG(INFO) << "TRACKER_EXTERNAL \n";
+  LOG(INFO) << "PoseSourceEngine \n";
 
 }
 
 void PoseSourceEngine::loadPoseIntoCache(void) {
   // TODO(gocarlos): Implement this
-  LOG(INFO) << "TRACKER_EXTERNAL \n";
+  LOG(INFO) << "loadPoseIntoCache \n";
 }
 
 bool PoseSourceEngine::hasMoreMeasurements(void) {
   loadPoseIntoCache();
-  LOG(INFO) << "TRACKER_EXTERNAL \n";
+  LOG(INFO) << "hasMoreMeasurements \n";
 
   return (cached_pose != NULL);
 }
 
 void PoseSourceEngine::getMeasurement(ITMPoseMeasurement* pose) {
   bool bUsedCache = false;
-  LOG(INFO) << "TRACKER_EXTERNAL \n";
+  LOG(INFO) << "getMeasurement \n";
 
   if (cached_pose != NULL) {
     pose->R = cached_pose->R;

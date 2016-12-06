@@ -1,6 +1,4 @@
 // Copyright 2014-2015 Isis Innovation Limited and the authors of InfiniTAM
-#include <ros/ros.h>
-#include <sensor_msgs/Image.h>
 
 #include <glog/logging.h>
 #include <cstdlib>
@@ -19,6 +17,13 @@
 #include "Engine/RosImageSourceEngine.h"
 #include "Engine/RosPoseSourceEngine.h"
 
+// ROS
+#include <std_srvs/Empty.h>
+#include <std_srvs/SetBool.h>
+#include <ros/ros.h>
+#include <sensor_msgs/Image.h>
+#include <sensor_msgs/PointCloud2.h>
+
 using namespace InfiniTAM::Engine;
 
 /** Create a default source of depth images from a list of command line
@@ -33,11 +38,21 @@ class InfinitamNode {
   InfinitamNode(int &argc, char** argv);
   ~InfinitamNode();
 
-  //! Read parameter from the ROS parameter server.
+  //! Read parameters from the ROS parameter server.
   void readParameters();
+
   //! Choose Image and Pose sources.
   void SetUpSources();
 
+  //! ROS Service Callback method, initialises Infinitam
+  bool startInfinitam(std_srvs::SetBool::Request& request,
+                      std_srvs::SetBool::Response& response);
+
+  //! ROS Service Callback method, make infinitam publish the current map.
+  bool publishMap(std_srvs::Empty::Request& request,
+                  std_srvs::Empty::Response& response);
+
+  void extractMeshToPcl(pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_pcl);
  private:
   ros::NodeHandle node_handle_;
 
@@ -45,15 +60,14 @@ class InfinitamNode {
   const char* arg2 = NULL;
   const char* arg3 = NULL;
   const char* arg4 = NULL;
+  int argc;
+  char** argv;
 
-  ITMMainEngine* main_engine = NULL;
-  ITMLibSettings* internal_settings = NULL;
-  ImageSourceEngine* image_source = NULL;
-  IMUSourceEngine* imu_source = NULL;
-  PoseSourceEngine* pose_source = NULL;
-
-  //! Wether Infinitam should start the GuiEngine or the CLI engine.
-  bool start_with_gui_interface;
+  ITMMainEngine* main_engine_ = NULL;
+  ITMLibSettings* internal_settings_ = NULL;
+  ImageSourceEngine* image_source_ = NULL;
+  IMUSourceEngine* imu_source_ = NULL;
+  PoseSourceEngine* pose_source_ = NULL;
 
   ros::Subscriber rgb_sub_;
   ros::Subscriber depth_sub_;
@@ -61,126 +75,241 @@ class InfinitamNode {
   std::string rgb_image_topic;
   std::string depth_image_topic;
 
+  //! Name for the depth camera frame id in TF.
+  std::string camera_frame_id_;
+
+  // initialize service
+  ros::ServiceServer start_infinitam_service_;
+
+  ros::ServiceServer build_mesh_service_;
+
+  ros::ServiceServer publish_mesh_service_;
+
+  //! ROS publisher to send out the complete cloud.
+  ros::Publisher complete_point_cloud_pub_;
+
+  //! ROS topic name where the generated complete cloud is published.
+  std::string complete_cloud_topic_;
+
 };
 
 InfinitamNode::InfinitamNode(int &argc, char** argv)
     : node_handle_("~") {
+  this->argc = argc;
+  this->argv = argv;
 
-  pose_source = new PoseSourceEngine();
-  internal_settings = new ITMLibSettings();
+  pose_source_ = new PoseSourceEngine();
+  internal_settings_ = new ITMLibSettings();
 
   readParameters();
 
-  int arg = 1;
-  do {
-    if (argv[arg] != NULL)
-      arg1 = argv[arg];
-    else
-      break;
-    ++arg;
-    if (argv[arg] != NULL)
-      arg2 = argv[arg];
-    else
-      break;
-    ++arg;
-    if (argv[arg] != NULL)
-      arg3 = argv[arg];
-    else
-      break;
-    ++arg;
-    if (argv[arg] != NULL)
-      arg4 = argv[arg];
-    else
-      break;
-  } while (false);
-  printf("after while\n");
+  // initialize service
+  start_infinitam_service_ = node_handle_.advertiseService(
+      "start_infinitam", &InfinitamNode::startInfinitam, this);
 
-  if (arg == 1) {
-    printf(
-        "usage: %s [<calibfile> [<imagesource>] ]\n"
-        "  <calibfile>   : path to a file containing intrinsic calibration "
-        "parameters\n"
-        "  <imagesource> : either one argument to specify OpenNI device ID\n"
-        "                  or two arguments specifying rgb and depth file "
-        "masks\n"
-        "\n"
-        "examples:\n"
-        "  %s ./Files/Teddy/calib.txt ./Files/Teddy/Frames/%%04i.ppm "
-        "./Files/Teddy/Frames/%%04i.pgm\n"
-        "  %s ./Files/Teddy/calib.txt\n\n",
-        argv[0], argv[0], argv[0]);
-  }
+  publish_mesh_service_ = node_handle_.advertiseService(
+      "publish_mesh", &InfinitamNode::publishMap, this);
 
-  printf("initialising ...\n");
-
-  SetUpSources();
-  main_engine = new ITMMainEngine(internal_settings, &image_source->calib,
-                                  image_source->getRGBImageSize(),
-                                  image_source->getDepthImageSize());
-
-  image_source->main_engine_ = main_engine;
-  pose_source->main_engine_ = main_engine;
-  if (image_source == NULL) {
-    std::cout << "failed to open any image stream" << std::endl;
-  }
-
-  // start GUI Engine
-  if (start_with_gui_interface) {
-    UIEngine::Instance()->Initialise(argc, argv, image_source, imu_source,
-                                     main_engine, "./Files/Out",
-                                     internal_settings->deviceType);
-
-    ROS_INFO("GUI Engine Initialized.");
-    UIEngine::Instance()->Run();
-    ROS_INFO("Done.");
-    image_source->set_camera_pose_ = false;
-    UIEngine::Instance()->Shutdown();
-  }
-  // start CLI Engine
-  else {
-    ITMMainEngine* mainEngine = new ITMMainEngine(
-        internal_settings, &image_source->calib,
-        image_source->getRGBImageSize(), image_source->getDepthImageSize());
-
-    CLIEngine::Instance()->Initialise(image_source, imu_source, main_engine,
-                                      internal_settings->deviceType);
-
-    ROS_INFO("CLI Engine Initialized.");
-    CLIEngine::Instance()->Run();
-    CLIEngine::Instance()->Shutdown();
-  }
-
+  complete_point_cloud_pub_ = node_handle_.advertise<sensor_msgs::PointCloud2>(
+      complete_cloud_topic_, 1);
 }
 
 InfinitamNode::~InfinitamNode() {
-  delete main_engine;
-  delete internal_settings;
-  delete image_source;
-  if (imu_source != NULL)
-    delete imu_source;
+  delete main_engine_;
+  delete internal_settings_;
+  delete image_source_;
+  if (imu_source_ != NULL)
+    delete imu_source_;
+}
+bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
+                                   std_srvs::SetBool::Response& response) {
+  // turn on infinitam
+  if (request.data) {
+
+
+
+    int arg = 1;
+    do {
+      if (argv[arg] != NULL)
+        arg1 = argv[arg];
+      else
+        break;
+      ++arg;
+      if (argv[arg] != NULL)
+        arg2 = argv[arg];
+      else
+        break;
+      ++arg;
+      if (argv[arg] != NULL)
+        arg3 = argv[arg];
+      else
+        break;
+      ++arg;
+      if (argv[arg] != NULL)
+        arg4 = argv[arg];
+      else
+        break;
+    } while (false);
+    printf("after while\n");
+
+    if (arg == 1) {
+      printf(
+          "usage: %s [<calibfile> [<imagesource>] ]\n"
+          "  <calibfile>   : path to a file containing intrinsic calibration "
+          "parameters\n"
+          "  <imagesource> : either one argument to specify OpenNI device ID\n"
+          "                  or two arguments specifying rgb and depth file "
+          "masks\n"
+          "\n"
+          "examples:\n"
+          "  %s ./Files/Teddy/calib.txt ./Files/Teddy/Frames/%%04i.ppm "
+          "./Files/Teddy/Frames/%%04i.pgm\n"
+          "  %s ./Files/Teddy/calib.txt\n\n",
+          argv[0], argv[0], argv[0]);
+    }
+
+    printf("initialising ...\n");
+
+    SetUpSources();
+
+    main_engine_ = new ITMMainEngine(internal_settings_, &image_source_->calib,
+                                     image_source_->getRGBImageSize(),
+                                     image_source_->getDepthImageSize());
+
+    if (image_source_ == NULL) {
+      std::cout << "failed to open any image stream" << std::endl;
+    }
+
+    image_source_->main_engine_ = main_engine_;
+    pose_source_->main_engine_ = main_engine_;
+
+    UIEngine::Instance()->Initialise(argc, argv, image_source_, imu_source_,
+                                     main_engine_, "./Files/Out",
+                                     internal_settings_->deviceType);
+
+    // Start already with processing once the run method is called.
+    UIEngine::Instance()->mainLoopAction=UIEngine::PROCESS_VIDEO;
+    ROS_INFO("GUI Engine Initialized.");
+    UIEngine::Instance()->Run();
+    ROS_INFO("Done.");
+    image_source_->set_camera_pose_ = false;
+    UIEngine::Instance()->Shutdown();
+
+  }
+
+  // turn off infinitam.
+  if (!request.data) {
+    // TODO(gocarlos): this cannot be done since the service call to turn on the service blocks
+    UIEngine::Instance()->mainLoopAction=UIEngine::PROCESS_PAUSED;
+    UIEngine::Instance()->mainLoopAction=UIEngine::EXIT;
+  }
+  // TODO(gocarlos): when the service is called, it does not return true until infinitam is stopped.
+  // find a solution.
+  return true;
+}
+
+bool InfinitamNode::publishMap(std_srvs::Empty::Request& request,
+                               std_srvs::Empty::Response& response) {
+  pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_pcl(
+      new pcl::PointCloud<pcl::PointXYZ>);
+  ROS_INFO("publishMap");
+
+  extractMeshToPcl(point_cloud_pcl);
+
+  ROS_INFO("got point cloud");
+
+  sensor_msgs::PointCloud2 point_cloud_msg;
+  pcl::toROSMsg(*point_cloud_pcl, point_cloud_msg);
+  point_cloud_msg.header.frame_id = camera_frame_id_;
+  point_cloud_msg.header.stamp = ros::Time::now();
+
+  complete_point_cloud_pub_.publish(point_cloud_msg);
+
+  return true;
+}
+
+void InfinitamNode::extractMeshToPcl(
+    pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_pcl) {
+  CHECK_NOTNULL(main_engine_);
+  CHECK_NOTNULL(&point_cloud_pcl);
+
+  main_engine_->GetMeshingEngine()->MeshScene(main_engine_->GetMesh(),
+                                              main_engine_->GetScene());
+  ROS_INFO("got mesh successfully");
+  ORUtils::MemoryBlock<ITMMesh::Triangle>* cpu_triangles;
+  bool rm_triangle_in_cuda_memory = false;
+
+  if (main_engine_->GetMesh()->memoryType == MEMORYDEVICE_CUDA) {
+    cpu_triangles = new ORUtils::MemoryBlock<ITMMesh::Triangle>(
+        main_engine_->GetMesh()->noMaxTriangles, MEMORYDEVICE_CPU);
+    cpu_triangles->SetFrom(
+        main_engine_->GetMesh()->triangles,
+        ORUtils::MemoryBlock<ITMMesh::Triangle>::CUDA_TO_CPU);
+    rm_triangle_in_cuda_memory = true;
+  } else {
+    cpu_triangles = main_engine_->GetMesh()->triangles;
+  }
+
+  ITMMesh::Triangle* triangleArray = cpu_triangles->GetData(MEMORYDEVICE_CPU);
+
+  // Point cloud has at least 3 points per triangle.
+  point_cloud_pcl->width = main_engine_->GetMesh()->noTotalTriangles * 3;
+  point_cloud_pcl->height = 1;
+  point_cloud_pcl->is_dense = false;
+  point_cloud_pcl->points.resize(
+      point_cloud_pcl->width * point_cloud_pcl->height);
+
+  ROS_ERROR_COND(main_engine_->GetMesh()->noTotalTriangles < 1,
+                 "The mesh has too few triangles, only: %d",
+                 main_engine_->GetMesh()->noTotalTriangles);
+
+  // All vertices of the mesh are stored in the pcl point cloud.
+  for (int64 i = 0; i < main_engine_->GetMesh()->noTotalTriangles * 3;
+      i = i + 3) {
+    point_cloud_pcl->points[i].x = triangleArray[i].p0.x;
+    point_cloud_pcl->points[i].y = triangleArray[i].p0.y;
+    point_cloud_pcl->points[i].z = triangleArray[i].p0.z;
+
+    point_cloud_pcl->points[i + 1].x = triangleArray[i].p1.x;
+    point_cloud_pcl->points[i + 1].y = triangleArray[i].p1.y;
+    point_cloud_pcl->points[i + 1].z = triangleArray[i].p1.z;
+
+    point_cloud_pcl->points[i + 2].x = triangleArray[i].p2.x;
+    point_cloud_pcl->points[i + 2].y = triangleArray[i].p2.y;
+    point_cloud_pcl->points[i + 2].z = triangleArray[i].p2.z;
+  }
+  ROS_INFO("got out_cloud");
+
+  if (rm_triangle_in_cuda_memory) {
+    delete cpu_triangles;
+  }
 }
 
 void InfinitamNode::readParameters() {
+
   // ROS topic names
   node_handle_.param<std::string>("rgb_image_topic", rgb_image_topic,
                                   "/camera/rgb/image_raw");
   node_handle_.param<std::string>("depth_image_topic", depth_image_topic,
                                   "/camera/depth/image_raw");
+  node_handle_.param<std::string>("complete_cloud", complete_cloud_topic_,
+                        "/complete_cloud");
 
   // InfiniTAM settings
   node_handle_.param<float>("viewFrustum_min",
-                            internal_settings->sceneParams.viewFrustum_min,
+                            internal_settings_->sceneParams.viewFrustum_min,
                             0.35f);
   node_handle_.param<float>("viewFrustum_max",
-                            internal_settings->sceneParams.viewFrustum_max,
+                            internal_settings_->sceneParams.viewFrustum_max,
                             3.0f);
-  node_handle_.param<bool>("start_with_gui_interface",
-                           start_with_gui_interface, true);
+
+  node_handle_.param<std::string>("camera_frame_id", camera_frame_id_,
+                                  "sr300_depth_optical_frame");
 }
 
 void InfinitamNode::SetUpSources() {
-  CHECK_NOTNULL(pose_source);
-  CHECK_NOTNULL(internal_settings);
+  CHECK_NOTNULL(pose_source_);
+  CHECK_NOTNULL(internal_settings_);
 
   const char* calibration_filename = arg1;
   const char* depth_image_filename = arg2;
@@ -193,94 +322,88 @@ void InfinitamNode::SetUpSources() {
     printf("using rgb images: %s\nusing depth images: %s\n",
            depth_image_filename, rgb_image_filename);
     if (filename_imu == NULL) {
-      image_source = new ImageFileReader(calibration_filename,
-                                         depth_image_filename,
-                                         rgb_image_filename);
+      image_source_ = new ImageFileReader(calibration_filename,
+                                          depth_image_filename,
+                                          rgb_image_filename);
     } else {
       printf("using imu data: %s\n", filename_imu);
-      image_source = new RawFileReader(calibration_filename,
-                                       depth_image_filename,
-                                       rgb_image_filename, Vector2i(320, 240),
-                                       0.5f);
-      imu_source = new IMUSourceEngine(filename_imu);
+      image_source_ = new RawFileReader(calibration_filename,
+                                        depth_image_filename,
+                                        rgb_image_filename, Vector2i(320, 240),
+                                        0.5f);
+      imu_source_ = new IMUSourceEngine(filename_imu);
     }
   }
 
-  if (image_source == NULL) {
+  if (image_source_ == NULL) {
     printf(
         "trying OpenNI device: %s\n",
         (depth_image_filename == NULL) ?
             "<OpenNI default device>" : depth_image_filename);
-    image_source = new OpenNIEngine(calibration_filename,
-                                    depth_image_filename);
-    if (image_source->getDepthImageSize().x == 0) {
-      delete image_source;
-      image_source = NULL;
+    image_source_ = new OpenNIEngine(calibration_filename,
+                                     depth_image_filename);
+    if (image_source_->getDepthImageSize().x == 0) {
+      delete image_source_;
+      image_source_ = NULL;
     }
   }
-  if (image_source == NULL) {
+  if (image_source_ == NULL) {
     printf("trying UVC device\n");
-    image_source = new LibUVCEngine(calibration_filename);
-    if (image_source->getDepthImageSize().x == 0) {
-      delete image_source;
-      image_source = NULL;
+    image_source_ = new LibUVCEngine(calibration_filename);
+    if (image_source_->getDepthImageSize().x == 0) {
+      delete image_source_;
+      image_source_ = NULL;
     }
   }
 
-  if (image_source == NULL) {
+  if (image_source_ == NULL) {
     printf("trying MS Kinect 2 device\n");
-    image_source = new Kinect2Engine(calibration_filename);
-    if (image_source->getDepthImageSize().x == 0) {
-      delete image_source;
-      image_source = NULL;
+    image_source_ = new Kinect2Engine(calibration_filename);
+    if (image_source_->getDepthImageSize().x == 0) {
+      delete image_source_;
+      image_source_ = NULL;
     }
   }
-  if (image_source == NULL) {
+  if (image_source_ == NULL) {
     printf("Checking if there are suitable ROS messages being published.\n");
 
-    pose_source = new RosPoseSourceEngine(node_handle_);
-    image_source = new RosImageSourceEngine(node_handle_,
-                                            calibration_filename);
+    pose_source_ = new RosPoseSourceEngine(node_handle_);
+    image_source_ = new RosImageSourceEngine(node_handle_,
+                                             calibration_filename);
 
     // Get images from ROS topic.
     rgb_sub_ = node_handle_.subscribe(rgb_image_topic, 10,
                                       &RosImageSourceEngine::rgbCallback,
-                                      (RosImageSourceEngine*) image_source);
+                                      (RosImageSourceEngine*) image_source_);
 
     depth_sub_ = node_handle_.subscribe(depth_image_topic, 10,
                                         &RosImageSourceEngine::depthCallback,
-                                        (RosImageSourceEngine*) image_source);
+                                        (RosImageSourceEngine*) image_source_);
 
     tf_sub_ = node_handle_.subscribe("/tf", 10,
                                      &RosPoseSourceEngine::TFCallback,
-                                     (RosPoseSourceEngine*) pose_source);
+                                     (RosPoseSourceEngine*) pose_source_);
 
-    if (image_source->getDepthImageSize().x == 0) {
-      delete image_source;
-      image_source = NULL;
+    if (image_source_->getDepthImageSize().x == 0) {
+      delete image_source_;
+      image_source_ = NULL;
     }
   }
 
   // this is a hack to ensure backwards compatibility in certain configurations
-  if (image_source == NULL) {
+  if (image_source_ == NULL) {
     return;
   }
-  if (image_source->calib.disparityCalib.params == Vector2f(0.0f, 0.0f)) {
-    image_source->calib.disparityCalib.type = ITMDisparityCalib::TRAFO_AFFINE;
-    image_source->calib.disparityCalib.params = Vector2f(1.0f / 1000.0f,
-                                                         0.0f);
+  if (image_source_->calib.disparityCalib.params == Vector2f(0.0f, 0.0f)) {
+    image_source_->calib.disparityCalib.type = ITMDisparityCalib::TRAFO_AFFINE;
+    image_source_->calib.disparityCalib.params = Vector2f(1.0f / 1000.0f, 0.0f);
   }
 }
-
-
-
 
 int main(int argc, char** argv) {
   google::InitGoogleLogging(argv[0]);
   ros::init(argc, argv, "infinitamNode");
-  printf("main\n");
   InfinitamNode infinitamNode(argc, argv);
-  printf("after infinitamNode\n");
 
   while (ros::ok()) {
     ros::spin();
@@ -288,4 +411,3 @@ int main(int argc, char** argv) {
 
   return EXIT_SUCCESS;
 }
-

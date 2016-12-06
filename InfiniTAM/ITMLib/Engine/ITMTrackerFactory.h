@@ -131,7 +131,6 @@ namespace ITMLib
       static ITMTracker *MakeExternalTracker(
           const Vector2i& trackedImageSize, const ITMLibSettings *settings,const ITMLowLevelEngine *lowLevelEngine,
           ITMIMUCalibrator *imuCalibrator, ITMScene<TVoxel, TIndex> *scene) {
-        LOG(INFO) << "TRACKER_EXTERNAL";
         switch (settings->deviceType)
         {
           case ITMLibSettings::DEVICE_CPU:

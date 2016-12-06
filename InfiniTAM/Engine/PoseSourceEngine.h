@@ -13,11 +13,13 @@ class PoseSourceEngine {
   static const int BUF_SIZE = 2048;
   char poseMask[BUF_SIZE];
 
-  ITMPoseMeasurement* cached_pose;
 
   void loadPoseIntoCache();
   int cachedFrameNo;
   int currentFrameNo;
+
+ protected:
+  ITMPoseMeasurement* cached_pose;
 
  public:
   PoseSourceEngine();

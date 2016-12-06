@@ -74,10 +74,12 @@ class RosPoseSourceEngine : public PoseSourceEngine {
 
  public:
   RosPoseSourceEngine(ros::NodeHandle& nh);
-  void TFCallback(const tf::tfMessage &tf_msg);
-
   ~RosPoseSourceEngine();
 
+  void TFCallback(const tf::tfMessage &tf_msg);
+
+  bool hasMoreMeasurements(void);
+  void getMeasurement(ITMPoseMeasurement* pose);
     };
   }
   // namespace Engine
