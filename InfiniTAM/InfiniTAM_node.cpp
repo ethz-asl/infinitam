@@ -1,9 +1,11 @@
 // Copyright 2014-2015 Isis Innovation Limited and the authors of InfiniTAM
-
-#include <cstdlib>
-
 #include <ros/ros.h>
 #include <sensor_msgs/Image.h>
+
+#include <glog/logging.h>
+#include <cstdlib>
+
+#include <string>
 
 #include "Engine/ImageSourceEngine.h"
 #include "Engine/Kinect2Engine.h"
@@ -24,17 +26,19 @@ using namespace InfiniTAM::Engine;
 ros::Subscriber rgb_sub_;
 ros::Subscriber depth_sub_;
 
-static void CreateDefaultImageSource(const char* arg1, const char* arg2,
-                                     const char* arg3, const char* arg4,
-                                     ros::NodeHandle& node_handle,
-                                     ImageSourceEngine*& image_source,
-                                     IMUSourceEngine*& imu_source) {
+static void SetUpSources(const char* arg1, const char* arg2, const char* arg3,
+                         const char* arg4, ros::NodeHandle& node_handle,
+                         ImageSourceEngine*& image_source,
+                         IMUSourceEngine*& imu_source) {
+
   const char* calibration_filename = arg1;
   const char* depth_image_filename = arg2;
   const char* rgb_image_filename = arg3;
   const char* filename_imu = arg4;
+
   std::string rgb_image_topic;
   std::string depth_image_topic;
+
   node_handle.param<std::string>("rgb_image_topic", rgb_image_topic,
                                  "/camera/rgb/image_raw");
   node_handle.param<std::string>("depth_image_topic", depth_image_topic,
@@ -96,7 +100,10 @@ static void CreateDefaultImageSource(const char* arg1, const char* arg2,
   }
   if (image_source == NULL) {
     printf("Checking if there are suitable ROS messages being published.\n");
+
     image_source = new RosEngine(node_handle, calibration_filename);
+
+    // Get images from ROS topic.
     rgb_sub_ = node_handle.subscribe(
         rgb_image_topic, 10, &RosEngine::rgbCallback, (RosEngine*)image_source);
 
@@ -123,6 +130,13 @@ static void CreateDefaultImageSource(const char* arg1, const char* arg2,
 int main(int argc, char** argv) try {
   ros::init(argc, argv, "infinitam_node");
   ros::NodeHandle node_handle("~");
+
+  ITMMainEngine* main_engine = NULL;
+  ITMLibSettings* internal_settings = NULL;
+  ImageSourceEngine* image_source = NULL;
+  IMUSourceEngine* imu_source = NULL;
+
+  internal_settings = new ITMLibSettings();
 
   const char* arg1 = "";
   const char* arg2 = NULL;
@@ -169,24 +183,24 @@ int main(int argc, char** argv) try {
   }
 
   printf("initialising ...\n");
-  ImageSourceEngine* image_source = NULL;
-  IMUSourceEngine* imu_source = NULL;
 
-  CreateDefaultImageSource(arg1, arg2, arg3, arg4, node_handle, image_source,
-                           imu_source);
+  SetUpSources(arg1, arg2, arg3, arg4, node_handle, image_source, imu_source);
+
   if (image_source == NULL) {
     std::cout << "failed to open any image stream" << std::endl;
     return -1;
   }
 
-  ITMLibSettings* internal_settings = new ITMLibSettings();
-  ITMMainEngine* main_engine = new ITMMainEngine(
-      internal_settings, &image_source->calib, image_source->getRGBImageSize(),
-      image_source->getDepthImageSize());
+  main_engine = new ITMMainEngine(internal_settings, &image_source->calib,
+                                  image_source->getRGBImageSize(),
+                                  image_source->getDepthImageSize());
+
+  image_source->main_engine_ = main_engine;
 
   UIEngine::Instance()->Initialise(argc, argv, image_source, imu_source,
                                    main_engine, "./Files/Out",
                                    internal_settings->deviceType);
+
   ROS_INFO("Initialized.");
   UIEngine::Instance()->Run();
   ROS_INFO("Done.");

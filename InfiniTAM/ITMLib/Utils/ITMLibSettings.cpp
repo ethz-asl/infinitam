@@ -7,7 +7,7 @@
 using namespace ITMLib::Objects;
 
 ITMLibSettings::ITMLibSettings(void)
-    : sceneParams(0.02f, 100, 0.005f, 0.2f, 3.0f, false) {
+    : sceneParams(0.02f, 100, 0.005f, 0.35f, 3.0f, false) {
   /// depth threashold for the ICP tracker
   depthTrackerICPThreshold = 0.1f * 0.1f;
 
@@ -27,6 +27,7 @@ ITMLibSettings::ITMLibSettings(void)
 #endif
 #endif
 
+  // currently using only CPU for External tracker
   // deviceType = DEVICE_CPU;
 
   /// enables or disables swapping. HERE BE DRAGONS: It should work, but
@@ -80,6 +81,9 @@ ITMLibSettings::ITMLibSettings(void)
   if ((trackerType == TRACKER_COLOR) && (!ITMVoxel::hasColorInformation)) {
     printf(
         "Error: Color tracker requires a voxel type with color information!\n");
+  }
+  if (trackerType == TRACKER_EXTERNAL) {
+    LOG(INFO) << "TRACKER_EXTERNAL";
   }
 }
 
