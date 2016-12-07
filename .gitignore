@@ -1,3 +1,8 @@
+# eclipse
+.project
+.cproject
+.settings/
+
 *.kdev4
 *.opensdf
 *.pdb
