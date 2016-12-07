@@ -199,7 +199,6 @@ bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
 
   // turn off infinitam.
   if (!request.data) {
-    // TODO(gocarlos): this cannot be done since the service call to turn on the service blocks
     UIEngine::Instance()->mainLoopAction=UIEngine::PROCESS_PAUSED;
     UIEngine::Instance()->mainLoopAction=UIEngine::EXIT;
   }
