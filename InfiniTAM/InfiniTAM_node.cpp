@@ -103,7 +103,6 @@ static void SetUpSources(const char* arg1, const char* arg2, const char* arg3,
 
     image_source = new RosEngine(node_handle, calibration_filename);
 
-
     // Get images from ROS topic.
     rgb_sub_ = node_handle.subscribe(
         rgb_image_topic, 10, &RosEngine::rgbCallback, (RosEngine*)image_source);

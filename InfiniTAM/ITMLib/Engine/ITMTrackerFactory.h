@@ -55,7 +55,7 @@ namespace ITMLib
       {
         makers.insert(std::make_pair(ITMLibSettings::TRACKER_COLOR, &MakeColourTracker));
         makers.insert(std::make_pair(ITMLibSettings::TRACKER_ICP, &MakeICPTracker));
-    makers.insert(std::make_pair(ITMLibSettings::TRACKER_WICP, &MakeWeightedICPTracker));
+        makers.insert(std::make_pair(ITMLibSettings::TRACKER_WICP, &MakeWeightedICPTracker));
         makers.insert(std::make_pair(ITMLibSettings::TRACKER_IMU, &MakeIMUTracker));
         makers.insert(std::make_pair(ITMLibSettings::TRACKER_REN, &MakeRenTracker));
       }
