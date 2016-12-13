@@ -23,7 +23,7 @@ RosImageSourceEngine::RosImageSourceEngine(ros::NodeHandle& nh, const char*& cal
 
   ros::Subscriber rgb_info_sub;
   ros::Subscriber depth_info_sub;
-  set_camera_pose_ = true;
+
   nh.param<std::string>("rgb_camera_info_topic", rgb_camera_info_topic_,
                         "/camera/rgb/camera_info");
   nh.param<std::string>("depth_camera_info_topic", depth_camera_info_topic_,

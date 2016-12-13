@@ -61,11 +61,11 @@ class InfinitamNode {
   int argc;
   char** argv;
 
-  ITMMainEngine* main_engine_ = NULL;
-  ITMLibSettings* internal_settings_ = NULL;
-  ImageSourceEngine* image_source_ = NULL;
-  IMUSourceEngine* imu_source_ = NULL;
-  PoseSourceEngine* pose_source_ = NULL;
+  ITMMainEngine* main_engine_ = nullptr;
+  ITMLibSettings* internal_settings_ = nullptr;
+  ImageSourceEngine* image_source_ = nullptr;
+  IMUSourceEngine* imu_source_ = nullptr;
+  PoseSourceEngine* pose_source_ = nullptr;
 
   ros::Subscriber rgb_sub_;
   ros::Subscriber depth_sub_;
@@ -123,8 +123,6 @@ bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
                                    std_srvs::SetBool::Response& response) {
   // turn on infinitam
   if (request.data) {
-
-
 
     int arg = 1;
     do {
@@ -186,7 +184,7 @@ bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
                                      internal_settings_->deviceType);
 
     // Start already with processing once the run method is called.
-    UIEngine::Instance()->mainLoopAction=UIEngine::PROCESS_VIDEO;
+    UIEngine::Instance()->mainLoopAction = UIEngine::PROCESS_VIDEO;
     ROS_INFO("GUI Engine Initialized.");
     UIEngine::Instance()->Run();
     ROS_INFO("Done.");
@@ -197,8 +195,8 @@ bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
 
   // turn off infinitam.
   if (!request.data) {
-    UIEngine::Instance()->mainLoopAction=UIEngine::PROCESS_PAUSED;
-    UIEngine::Instance()->mainLoopAction=UIEngine::EXIT;
+    UIEngine::Instance()->mainLoopAction = UIEngine::PROCESS_PAUSED;
+    UIEngine::Instance()->mainLoopAction = UIEngine::EXIT;
   }
   // TODO(gocarlos): when the service is called, it does not return true until infinitam is stopped.
   // find a solution.
@@ -290,7 +288,7 @@ void InfinitamNode::readParameters() {
   node_handle_.param<std::string>("depth_image_topic", depth_image_topic,
                                   "/camera/depth/image_raw");
   node_handle_.param<std::string>("complete_cloud", complete_cloud_topic_,
-                        "/complete_cloud");
+                                  "/complete_cloud");
 
   // InfiniTAM settings
   node_handle_.param<float>("viewFrustum_min",

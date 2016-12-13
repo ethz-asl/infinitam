@@ -2,10 +2,11 @@
 
 #include "PoseSourceEngine.h"
 
-#include "../Utils/FileUtils.h"
 #include <glog/logging.h>
-
 #include <stdio.h>
+
+#include "../Utils/FileUtils.h"
+
 
 namespace InfiniTAM {
 namespace Engine {

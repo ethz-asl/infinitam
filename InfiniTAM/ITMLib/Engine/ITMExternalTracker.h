@@ -2,9 +2,6 @@
 
 #pragma once
 
-//#include <ros/ros.h>
-//#include <tf/transform_listener.h>
-
 #include "../Utils/ITMLibDefines.h"
 
 #include "../Objects/ITMImageHierarchy.h"
