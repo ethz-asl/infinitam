@@ -53,8 +53,6 @@ OpenNIEngine.cpp
 OpenNIEngine.h
 RealSenseEngine.cpp
 RealSenseEngine.h
-RosEngine.cpp
-RosEngine.h
 RosImageSourceEngine.cpp
 RosImageSourceEngine.h
 RosPoseSourceEngine.cpp

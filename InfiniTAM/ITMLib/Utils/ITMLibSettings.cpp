@@ -41,7 +41,7 @@ ITMLibSettings::ITMLibSettings(void)
   useBilateralFilter = false;
 
   // trackerType = TRACKER_COLOR;
-   trackerType = TRACKER_EXTERNAL;
+  trackerType = TRACKER_EXTERNAL;
   // trackerType = TRACKER_ICP;
   // trackerType = TRACKER_REN;
   // trackerType = TRACKER_IMU;

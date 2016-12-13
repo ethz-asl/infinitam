@@ -2,27 +2,25 @@
 
 #include <glog/logging.h>
 #include <cstdlib>
-
 #include <string>
 
+#include "Engine/CLIEngine.h"
 #include "Engine/ImageSourceEngine.h"
-#include "Engine/PoseSourceEngine.h"
 #include "Engine/Kinect2Engine.h"
 #include "Engine/LibUVCEngine.h"
 #include "Engine/OpenNIEngine.h"
+#include "Engine/PoseSourceEngine.h"
 #include "Engine/RealSenseEngine.h"
-#include "Engine/RosEngine.h"
-#include "Engine/UIEngine.h"
-#include "Engine/CLIEngine.h"
 #include "Engine/RosImageSourceEngine.h"
 #include "Engine/RosPoseSourceEngine.h"
+#include "Engine/UIEngine.h"
 
 // ROS
-#include <std_srvs/Empty.h>
-#include <std_srvs/SetBool.h>
 #include <ros/ros.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <std_srvs/Empty.h>
+#include <std_srvs/SetBool.h>
 
 using namespace InfiniTAM::Engine;
 

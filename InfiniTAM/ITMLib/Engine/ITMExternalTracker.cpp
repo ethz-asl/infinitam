@@ -1,16 +1,14 @@
 // Copyright 2014-2015 Isis Innovation Limited and the authors of InfiniTAM
 
 #include "ITMExternalTracker.h"
-#include "../../ORUtils/Cholesky.h"
-#include <glog/logging.h>
-//#include "../Utils/ITMLibDefines.h"
 
+#include <glog/logging.h>
 #include <math.h>
 
-using namespace ITMLib::Engine;
+#include "../../ORUtils/Cholesky.h"
 
-static inline bool minimizeLM(const ITMExternalTracker& tracker,
-                              ITMPose& initialization);
+
+using namespace ITMLib::Engine;
 
 ITMExternalTracker::ITMExternalTracker(Vector2i imgSize,
                                        TrackerIterationType* trackingRegime,
@@ -21,7 +19,7 @@ ITMExternalTracker::ITMExternalTracker(Vector2i imgSize,
       imgSize, trackingRegime, noHierarchyLevels, memoryType);
 
   this->lowLevelEngine = lowLevelEngine;
-  ROS_INFO("ITMExternalTracker");
+  LOG(INFO)<<"ITMExternalTracker";
 }
 
 ITMExternalTracker::~ITMExternalTracker(void) {
@@ -30,30 +28,5 @@ ITMExternalTracker::~ITMExternalTracker(void) {
 
 void ITMExternalTracker::TrackCamera(ITMTrackingState* trackingState,
                                      const ITMView* view) {
-//  LOG(INFO)<< "TRACKER_EXTERNAL \n";
-
-//  std::cout << "GetT pose_d: " << trackingState->pose_d->GetT()<<std::endl;
-//  std::cout << "GetT pose_pointCloud:" << trackingState->pose_pointCloud->GetT()<<std::endl;
-
-//  x = ((double) rand() / (RAND_MAX));
-//  y = ((double) rand() / (RAND_MAX));
-//  z = ((double) rand() / (RAND_MAX));
-//
-//
-//  t = ((double) rand() / (RAND_MAX));
-//  u = ((double) rand() / (RAND_MAX));
-//  v = ((double) rand() / (RAND_MAX));
-//
-//  trackingState->pose_d->SetFrom(x, y, z, t, u, v);;
-//
-//  ITMPose currentPara(
-//      view->calib->trafo_rgb_to_depth.calib_inv
-//          * trackingState->pose_d->GetM());
-
-// these following will coerce the result back into the chosen
-// parameterization for rotations
-//  trackingState->pose_d->SetM(
-//      view->calib->trafo_rgb_to_depth.calib * currentPara.GetM());
-
-//  trackingState->pose_d->Coerce();
+  //TODO(gocarlos): merge information from the camera pose with ICP estimation here.
 }

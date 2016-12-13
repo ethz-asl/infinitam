@@ -17,14 +17,6 @@ namespace Engine {
 class UIEngine {
   static UIEngine* instance;
 
-//  enum MainLoopAction {
-//    PROCESS_PAUSED,
-//    PROCESS_FRAME,
-//    PROCESS_VIDEO,
-//    EXIT,
-//    SAVE_TO_DISK
-//  } mainLoopAction;
-
   struct UIColourMode {
     const char* name;
     ITMMainEngine::GetImageType type;

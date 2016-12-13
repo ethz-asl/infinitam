@@ -24,6 +24,7 @@ namespace ITMLib
         this->T.z=0;
 			}
 
+
 			ITMPoseMeasurement(const Matrix3f & R, const Vector3f T)
 			{
 			  LOG(INFO) << "ITMPoseMeasurement \n";
