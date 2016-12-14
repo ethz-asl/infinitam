@@ -3,6 +3,7 @@
 #include <glog/logging.h>
 #include <cstdlib>
 #include <string>
+#include <math.h>
 
 #include "Engine/CLIEngine.h"
 #include "Engine/ImageSourceEngine.h"
@@ -21,6 +22,10 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <std_srvs/Empty.h>
 #include <std_srvs/SetBool.h>
+#include <shape_msgs/Mesh.h>
+
+// TEST
+#include <visualization_msgs/Marker.h>
 
 using namespace InfiniTAM::Engine;
 
@@ -51,6 +56,8 @@ class InfinitamNode {
                   std_srvs::Empty::Response& response);
 
   void extractMeshToPcl(pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_pcl);
+
+  void extractMeshToRosMesh(shape_msgs::Mesh::Ptr ros_mesh);
  private:
   ros::NodeHandle node_handle_;
 
@@ -83,11 +90,15 @@ class InfinitamNode {
 
   ros::ServiceServer publish_mesh_service_;
 
-  //! ROS publisher to send out the complete cloud.
+  //! ROS publisher to send out the complete cloud as ROS point cloud.
   ros::Publisher complete_point_cloud_pub_;
-
   //! ROS topic name where the generated complete cloud is published.
   std::string complete_cloud_topic_;
+
+  //! ROS publisher to send out the complete cloud as ROS mesh.
+  ros::Publisher complete_mesh_pub_;
+  //! ROS topic name where the generated complete mesh is published.
+  std::string complete_mesh_topic_;
 
 };
 
@@ -110,6 +121,10 @@ InfinitamNode::InfinitamNode(int &argc, char** argv)
 
   complete_point_cloud_pub_ = node_handle_.advertise<sensor_msgs::PointCloud2>(
       complete_cloud_topic_, 1);
+
+  complete_mesh_pub_ = node_handle_.advertise<shape_msgs::Mesh>(
+      complete_mesh_topic_, 1);
+
 }
 
 InfinitamNode::~InfinitamNode() {
@@ -205,12 +220,11 @@ bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
 
 bool InfinitamNode::publishMap(std_srvs::Empty::Request& request,
                                std_srvs::Empty::Response& response) {
+  // Publish point cloud.
   pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_pcl(
       new pcl::PointCloud<pcl::PointXYZ>);
-  ROS_INFO("publishMap");
 
   extractMeshToPcl(point_cloud_pcl);
-
   ROS_INFO("got point cloud");
 
   sensor_msgs::PointCloud2 point_cloud_msg;
@@ -220,6 +234,13 @@ bool InfinitamNode::publishMap(std_srvs::Empty::Request& request,
 
   complete_point_cloud_pub_.publish(point_cloud_msg);
 
+  // Publish ROS mesh
+  shape_msgs::Mesh::Ptr ros_mesh(new shape_msgs::Mesh);
+  extractMeshToRosMesh(ros_mesh);
+  ROS_INFO("got ros mesh");
+
+  complete_mesh_pub_.publish(ros_mesh);
+
   return true;
 }
 
@@ -227,10 +248,11 @@ void InfinitamNode::extractMeshToPcl(
     pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_pcl) {
   CHECK_NOTNULL(main_engine_);
   CHECK_NOTNULL(&point_cloud_pcl);
+  ROS_INFO("extractMeshToPcl");
 
   main_engine_->GetMeshingEngine()->MeshScene(main_engine_->GetMesh(),
                                               main_engine_->GetScene());
-  ROS_INFO("got mesh successfully");
+  ROS_INFO("got infinitam mesh successfully");
   ORUtils::MemoryBlock<ITMMesh::Triangle>* cpu_triangles;
   bool rm_triangle_in_cuda_memory = false;
 
@@ -247,7 +269,8 @@ void InfinitamNode::extractMeshToPcl(
 
   ITMMesh::Triangle* triangleArray = cpu_triangles->GetData(MEMORYDEVICE_CPU);
 
-  // Point cloud has at least 3 points per triangle.
+  // Here the point cloud copies the mesh point to the pcl point cloud.
+  // That means that the pcl point cloud has some duplicate points.
   point_cloud_pcl->width = main_engine_->GetMesh()->noTotalTriangles * 3;
   point_cloud_pcl->height = 1;
   point_cloud_pcl->is_dense = false;
@@ -280,6 +303,70 @@ void InfinitamNode::extractMeshToPcl(
   }
 }
 
+void InfinitamNode::extractMeshToRosMesh(shape_msgs::Mesh::Ptr ros_mesh) {
+  CHECK_NOTNULL(main_engine_);
+  CHECK_NOTNULL(&ros_mesh);
+  ROS_INFO("extractMeshToRosMesh");
+
+  main_engine_->GetMeshingEngine()->MeshScene(main_engine_->GetMesh(),
+                                              main_engine_->GetScene());
+  ROS_INFO("got infinitam mesh successfully");
+  ORUtils::MemoryBlock<ITMMesh::Triangle>* cpu_triangles;
+  bool rm_triangle_in_cuda_memory = false;
+
+  if (main_engine_->GetMesh()->memoryType == MEMORYDEVICE_CUDA) {
+    cpu_triangles = new ORUtils::MemoryBlock<ITMMesh::Triangle>(
+        main_engine_->GetMesh()->noMaxTriangles, MEMORYDEVICE_CPU);
+    cpu_triangles->SetFrom(
+        main_engine_->GetMesh()->triangles,
+        ORUtils::MemoryBlock<ITMMesh::Triangle>::CUDA_TO_CPU);
+    rm_triangle_in_cuda_memory = true;
+  } else {
+    cpu_triangles = main_engine_->GetMesh()->triangles;
+  }
+
+  ITMMesh::Triangle* triangleArray = cpu_triangles->GetData(MEMORYDEVICE_CPU);
+  ROS_INFO("asdf");
+
+  ROS_ERROR_COND(main_engine_->GetMesh()->noTotalTriangles < 1,
+                 "The mesh has too few triangles, only: %d",
+                 main_engine_->GetMesh()->noTotalTriangles);
+
+  shape_msgs::MeshTriangle ros_triangle;
+  geometry_msgs::Point vertices;
+  ROS_INFO("asdf");
+
+  // All vertices of the infinitam mesh are stored in a ROS Mesh.
+  for (long i = 0; i < main_engine_->GetMesh()->noTotalTriangles; ++i) {
+    ROS_INFO_STREAM("asdf" << i);
+
+    vertices.x = triangleArray[i].p0.x;
+    vertices.y = triangleArray[i].p0.y;
+    vertices.z = triangleArray[i].p0.z;
+    ros_mesh->vertices.push_back(vertices);
+    ros_triangle.vertex_indices[0] = 3 - pow(3, i);
+
+    vertices.x = triangleArray[i].p1.x;
+    vertices.y = triangleArray[i].p1.y;
+    vertices.z = triangleArray[i].p1.z;
+    ros_mesh->vertices.push_back(vertices);
+    ros_triangle.vertex_indices[1] = 2 - pow(3, i);
+
+    vertices.x = triangleArray[i].p2.x;
+    vertices.y = triangleArray[i].p2.y;
+    vertices.z = triangleArray[i].p2.z;
+    ros_mesh->vertices.push_back(vertices);
+    ros_triangle.vertex_indices[2] = 1 - pow(3, i);
+
+    ros_mesh->triangles.push_back(ros_triangle);
+  }
+  ROS_INFO("got ros mesh");
+
+  if (rm_triangle_in_cuda_memory) {
+    delete cpu_triangles;
+  }
+}
+
 void InfinitamNode::readParameters() {
 
   // ROS topic names
@@ -289,6 +376,8 @@ void InfinitamNode::readParameters() {
                                   "/camera/depth/image_raw");
   node_handle_.param<std::string>("complete_cloud", complete_cloud_topic_,
                                   "/complete_cloud");
+  node_handle_.param<std::string>("complete_mesh", complete_mesh_topic_,
+                                  "/complete_mesh");
 
   // InfiniTAM settings
   node_handle_.param<float>("viewFrustum_min",
