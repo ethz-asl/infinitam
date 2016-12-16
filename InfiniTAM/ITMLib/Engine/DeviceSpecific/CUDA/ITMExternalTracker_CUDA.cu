@@ -14,19 +14,11 @@ ITMExternalTracker_CUDA::ITMExternalTracker_CUDA(
     Vector2i imgSize, TrackerIterationType* trackingRegime,
     int noHierarchyLevels, const ITMLowLevelEngine* lowLevelEngine)
     : ITMExternalTracker(imgSize, trackingRegime, noHierarchyLevels,
-                         lowLevelEngine, MEMORYDEVICE_CUDA) {
-  LOG(ERROR) << "not implemented yet";
-}
+                         lowLevelEngine, MEMORYDEVICE_CUDA) {}
 
-ITMExternalTracker_CUDA::~ITMExternalTracker_CUDA(void) {
-  LOG(ERROR) << "not implemented yet";
-}
+ITMExternalTracker_CUDA::~ITMExternalTracker_CUDA(void) {}
 
-void ITMExternalTracker_CUDA::F_oneLevel(float* f, ITMPose* pose) {
-  LOG(ERROR) << "not implemented yet";
-}
+void ITMExternalTracker_CUDA::F_oneLevel(float* f, ITMPose* pose) {}
 
 void ITMExternalTracker_CUDA::G_oneLevel(float* gradient, float* hessian,
-                                         ITMPose* pose) const {
-  LOG(ERROR) << "not implemented yet";
-}
+                                         ITMPose* pose) const {}

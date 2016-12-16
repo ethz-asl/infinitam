@@ -2,11 +2,9 @@
 
 #include "PoseSourceEngine.h"
 
-#include <glog/logging.h>
 #include <stdio.h>
 
 #include "../Utils/FileUtils.h"
-
 
 namespace InfiniTAM {
 namespace Engine {
@@ -15,29 +13,23 @@ PoseSourceEngine::PoseSourceEngine() {
   cachedFrameNo = -1;
 
   cached_pose = NULL;
-  LOG(INFO) << "PoseSourceEngine \n";
-
 }
 
 void PoseSourceEngine::loadPoseIntoCache(void) {
   // TODO(gocarlos): Implement this
-  LOG(INFO) << "loadPoseIntoCache \n";
 }
 
 bool PoseSourceEngine::hasMoreMeasurements(void) {
   loadPoseIntoCache();
-  LOG(INFO) << "hasMoreMeasurements \n";
-
   return (cached_pose != NULL);
 }
 
 void PoseSourceEngine::getMeasurement(ITMPoseMeasurement* pose) {
   bool bUsedCache = false;
-  LOG(INFO) << "getMeasurement \n";
 
   if (cached_pose != NULL) {
     pose->R = cached_pose->R;
-    pose->T= cached_pose->T;
+    pose->T = cached_pose->T;
     delete cached_pose;
     cached_pose = NULL;
     bUsedCache = true;

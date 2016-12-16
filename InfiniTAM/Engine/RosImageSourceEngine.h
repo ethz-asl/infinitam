@@ -61,6 +61,8 @@ class RosImageSourceEngine : public ImageSourceEngine {
   sensor_msgs::CameraInfo rgb_info_;
   sensor_msgs::CameraInfo depth_info_;
 
+  ros::Time depth_msg_time_stamp_;
+
  public:
   RosImageSourceEngine(ros::NodeHandle& nh, const char*& calibration_filename);
 

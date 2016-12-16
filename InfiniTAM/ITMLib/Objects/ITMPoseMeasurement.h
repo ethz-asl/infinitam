@@ -12,30 +12,23 @@ class ITMPoseMeasurement {
   Vector3f T;
 
   ITMPoseMeasurement() {
-    LOG(INFO) << "ITMPoseMeasurement \n";
-
     this->R.setIdentity();
     this->T.x = 0;
     this->T.y = 0;
     this->T.z = 0;
   }
 
-  ITMPoseMeasurement(const Matrix3f & R, const Vector3f T) {
-    LOG(INFO) << "ITMPoseMeasurement \n";
-
+  ITMPoseMeasurement(const Matrix3f& R, const Vector3f T) {
     this->R = R;
     this->T = T;
   }
 
-  void SetFrom(const ITMPoseMeasurement *measurement) {
-    LOG(INFO) << "SetFrom \n";
-
+  void SetFrom(const ITMPoseMeasurement* measurement) {
     this->R = measurement->R;
     this->T = measurement->T;
   }
 
-  ~ITMPoseMeasurement(void) {
-  }
+  ~ITMPoseMeasurement(void) {}
 
   // Suppress the default copy constructor and assignment operator
   ITMPoseMeasurement(const ITMPoseMeasurement&);

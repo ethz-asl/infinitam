@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <glog/logging.h>
+
 #include "../../ITMExternalTracker.h"
 
 namespace ITMLib {
@@ -16,5 +18,5 @@ class ITMExternalTracker_CPU : public ITMExternalTracker {
                          const ITMLowLevelEngine* lowLevelEngine);
   ~ITMExternalTracker_CPU(void);
 };
-} // namespace Engine
-} // namespace ITMLib
+}  // namespace Engine
+}  // namespace ITMLib
