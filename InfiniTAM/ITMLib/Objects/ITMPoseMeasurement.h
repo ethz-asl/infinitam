@@ -4,48 +4,42 @@
 
 #include "../Utils/ITMLibDefines.h"
 
-namespace ITMLib
-{
-	namespace Objects
-	{
-		class ITMPoseMeasurement
-		{
-		public:
-			Matrix3f R;
-			Vector3f T;
+namespace ITMLib {
+namespace Objects {
+class ITMPoseMeasurement {
+ public:
+  Matrix3f R;
+  Vector3f T;
 
-			ITMPoseMeasurement()
-			{
-			  LOG(INFO) << "ITMPoseMeasurement \n";
+  ITMPoseMeasurement() {
+    LOG(INFO) << "ITMPoseMeasurement \n";
 
-        this->R.setIdentity();
-        this->T.x=0;
-        this->T.y=0;
-        this->T.z=0;
-			}
+    this->R.setIdentity();
+    this->T.x = 0;
+    this->T.y = 0;
+    this->T.z = 0;
+  }
 
+  ITMPoseMeasurement(const Matrix3f & R, const Vector3f T) {
+    LOG(INFO) << "ITMPoseMeasurement \n";
 
-			ITMPoseMeasurement(const Matrix3f & R, const Vector3f T)
-			{
-			  LOG(INFO) << "ITMPoseMeasurement \n";
+    this->R = R;
+    this->T = T;
+  }
 
-        this->R = R;
-        this->T = T;
-			}
+  void SetFrom(const ITMPoseMeasurement *measurement) {
+    LOG(INFO) << "SetFrom \n";
 
-			void SetFrom(const ITMPoseMeasurement *measurement)
-			{
-			  LOG(INFO) << "SetFrom \n";
+    this->R = measurement->R;
+    this->T = measurement->T;
+  }
 
-        this->R = measurement->R;
-        this->T = measurement->T;
-			}
+  ~ITMPoseMeasurement(void) {
+  }
 
-			~ITMPoseMeasurement(void) { }
-
-			// Suppress the default copy constructor and assignment operator
-			ITMPoseMeasurement(const ITMPoseMeasurement&);
-			ITMPoseMeasurement& operator=(const ITMPoseMeasurement&);
-		};
-	} // namespace Objects
-} // namespace ITMLib
+  // Suppress the default copy constructor and assignment operator
+  ITMPoseMeasurement(const ITMPoseMeasurement&);
+  ITMPoseMeasurement& operator=(const ITMPoseMeasurement&);
+};
+}  // namespace Objects
+}  // namespace ITMLib
