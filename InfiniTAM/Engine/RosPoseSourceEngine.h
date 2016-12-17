@@ -2,12 +2,14 @@
 
 #pragma once
 
-#include "PoseSourceEngine.h"
 #include <glog/logging.h>
-#include "../ITMLib/Utils/ITMLibDefines.h"
-
+#include <cstdio>
 #include <mutex>
 #include <string>
+
+#include "../ITMLib/Utils/ITMLibDefines.h"
+#include "PoseSourceEngine.h"
+
 #if (!defined USING_CMAKE) && (defined _MSC_VER)
 #ifdef _DEBUG
 #pragma comment(lib, "libpxcmd_d")
@@ -43,6 +45,9 @@ class RosPoseSourceEngine : public PoseSourceEngine {
 
   bool first_time_tf_available_;
 
+  //! Time stamp of the latest available image.
+  ros::Time latest_depth_image_stamp_;
+
   //! Name for the depth camera frame id in TF.
   std::string camera_frame_id_;
   //! Name for the fixed frame in TF.
@@ -50,7 +55,8 @@ class RosPoseSourceEngine : public PoseSourceEngine {
   //! ROS topic name where the generated complete cloud is published.
   std::string complete_cloud_topic_;
 
-  //! ROS service name, when called the current mesh is transformed into a point cloud and published.
+  //! ROS service name, when called the current mesh is transformed into a point
+  //! cloud and published.
   ros::ServiceServer publish_scene_service_;
   //! ROS publisher to send out the complete cloud.
   ros::Publisher complete_point_cloud_pub_;
@@ -58,11 +64,12 @@ class RosPoseSourceEngine : public PoseSourceEngine {
   tf::TransformListener listener;
   tf::TransformBroadcaster broadcaster;
 
-  // Infinitam Vector, represents translation from the infititam origin to the camera pose.
+  // Infinitam Vector, represents translation from the infititam origin to the
+  // camera pose.
   Vector3f infinitam_translation_vector_;
-  // Infinitam Matrix, represents rotation from the infititam origin to the camera pose.
+  // Infinitam Matrix, represents rotation from the infititam origin to the
+  // camera pose.
   Matrix3f infinitam_rotation_matrix_;
-
 
   tf::StampedTransform tf_world_to_camera_transform_current_;
   tf::StampedTransform tf_world_to_camera_transform_at_start_;
@@ -76,11 +83,11 @@ class RosPoseSourceEngine : public PoseSourceEngine {
   RosPoseSourceEngine(ros::NodeHandle& nh);
   ~RosPoseSourceEngine();
 
-  void TFCallback(const tf::tfMessage &tf_msg);
+  void TFCallback(const tf::tfMessage& tf_msg);
 
   bool hasMoreMeasurements(void);
   void getMeasurement(ITMPoseMeasurement* pose);
-    };
-  }
-  // namespace Engine
-  }// namespace InfiniTAM
+};
+}
+// namespace Engine
+}  // namespace InfiniTAM

@@ -2,9 +2,11 @@
 
 #pragma once
 
+#include "../ITMLib/Objects/ITMPoseMeasurement.h"
+
 #include "../ITMLib/ITMLib.h"
 
-#include "../ITMLib/Objects/ITMPoseMeasurement.h"
+#include <glog/logging.h>
 
 namespace InfiniTAM {
 namespace Engine {
@@ -12,7 +14,6 @@ class PoseSourceEngine {
  private:
   static const int BUF_SIZE = 2048;
   char poseMask[BUF_SIZE];
-
 
   void loadPoseIntoCache();
   int cachedFrameNo;
@@ -23,9 +24,8 @@ class PoseSourceEngine {
 
  public:
   PoseSourceEngine();
-  ~PoseSourceEngine() {
-  }
-  ITMMainEngine* main_engine_ = NULL;
+  ~PoseSourceEngine() {}
+  ITMMainEngine* main_engine_ = nullptr;
   bool set_camera_pose_;
 
   bool hasMoreMeasurements(void);

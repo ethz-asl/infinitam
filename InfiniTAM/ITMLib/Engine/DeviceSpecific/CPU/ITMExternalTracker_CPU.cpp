@@ -2,11 +2,10 @@
 
 #include "ITMExternalTracker_CPU.h"
 
-#include <glog/logging.h>
 
 #include "../../DeviceAgnostic/ITMExternalTracker.h"
-#include "../../ITMExternalTracker.h"
 #include "../../DeviceAgnostic/ITMPixelUtils.h"
+#include "../../ITMExternalTracker.h"
 
 using namespace ITMLib::Engine;
 
@@ -19,10 +18,10 @@ ITMExternalTracker_CPU::ITMExternalTracker_CPU(
 ITMExternalTracker_CPU::~ITMExternalTracker_CPU(void) {}
 
 void ITMExternalTracker_CPU::F_oneLevel(float* f, ITMPose* pose) {
-  LOG(ERROR) << "not implemented yet";
+  LOG(FATAL) << "not implemented yet";
 }
 
 void ITMExternalTracker_CPU::G_oneLevel(float* gradient, float* hessian,
                                         ITMPose* pose) const {
-  LOG(ERROR) << "not implemented yet";
+  LOG(FATAL) << "not implemented yet";
 }

@@ -74,7 +74,6 @@ ELSE()
   add_definitions(-DCOMPILE_WITHOUT_CUDA)
 ENDIF()
 
-find_package(glog_catkin REQUIRED)
 find_package(catkin_simple REQUIRED)
 catkin_simple(ALL_DEPS_REQUIRED)
 
@@ -97,7 +96,7 @@ IF(WITH_CUDA)
   target_link_libraries(InfiniTAM ${CUDA_LIBRARIES})
 ENDIF()
 
-add_executable(infinitam_ros_node infinitam_ros_node.cpp)
+cs_add_executable(infinitam_ros_node infinitam_ros_node.cpp)
 target_link_libraries(infinitam_ros_node Engine)
 target_link_libraries(infinitam_ros_node Utils)
 IF(WITH_CUDA)

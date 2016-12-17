@@ -72,6 +72,8 @@ namespace ITMLib
       ITMRenderState *renderState_live;
       ITMRenderState *renderState_freeview;
 
+      double image_time_stamp;
+      double pose_time_stamp;
     public:
       enum GetImageType
       {
@@ -83,6 +85,12 @@ namespace ITMLib
         InfiniTAM_IMAGE_FREECAMERA_COLOUR_FROM_NORMAL,
         InfiniTAM_IMAGE_UNKNOWN
       };
+      /// Gives access to the image time stamp.
+      void setImageTimeStamp(double image_time_stamp){this->image_time_stamp=image_time_stamp;}
+      double getImageTimeStamp(){return image_time_stamp;}
+      void setPoseTimeStamp(double pose_time_stamp){this->pose_time_stamp=pose_time_stamp;}
+      double getPoseTimeStamp(){return pose_time_stamp;}
+
       /// Gives access to the meshing engine, is needed to get a full mesh.
       ITMMeshingEngine<ITMVoxel, ITMVoxelIndex> * GetMeshingEngine(void) { return meshingEngine; }
 
