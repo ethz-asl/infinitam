@@ -104,7 +104,8 @@ class InfinitamNode {
   std::string complete_mesh_topic_;
 };
 
-InfinitamNode::InfinitamNode(int& argc, char** argv) : node_handle_("~") {
+InfinitamNode::InfinitamNode(int& argc, char** argv)
+    : node_handle_("~") {
   this->argc = argc;
   this->argv = argv;
 
@@ -123,15 +124,16 @@ InfinitamNode::InfinitamNode(int& argc, char** argv) : node_handle_("~") {
   complete_point_cloud_pub_ = node_handle_.advertise<sensor_msgs::PointCloud2>(
       complete_cloud_topic_, 1);
 
-  complete_mesh_pub_ =
-      node_handle_.advertise<shape_msgs::Mesh>(complete_mesh_topic_, 1);
+  complete_mesh_pub_ = node_handle_.advertise<shape_msgs::Mesh>(
+      complete_mesh_topic_, 1);
 }
 
 InfinitamNode::~InfinitamNode() {
   delete main_engine_;
   delete internal_settings_;
   delete image_source_;
-  if (imu_source_ != NULL) delete imu_source_;
+  if (imu_source_ != NULL)
+    delete imu_source_;
 }
 bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
                                    std_srvs::SetBool::Response& response) {
@@ -219,26 +221,33 @@ bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
 
 bool InfinitamNode::publishMap(std_srvs::Empty::Request& request,
                                std_srvs::Empty::Response& response) {
-  // Publish point cloud.
-  pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_pcl(
-      new pcl::PointCloud<pcl::PointXYZ>);
 
-  extractMeshToPcl(point_cloud_pcl);
-  ROS_INFO("got point cloud");
+  //////////////////////////////////////////////////////////
+  main_engine_->GetMeshingEngine()->MeshScene(main_engine_->GetMesh(),
+                                              main_engine_->GetScene());
+  main_engine_->GetMesh()->WriteSTL("../output.stl");
+  //////////////////////////////////////////////////////////
 
-  sensor_msgs::PointCloud2 point_cloud_msg;
-  pcl::toROSMsg(*point_cloud_pcl, point_cloud_msg);
-  point_cloud_msg.header.frame_id = camera_frame_id_;
-  point_cloud_msg.header.stamp = ros::Time::now();
-
-  complete_point_cloud_pub_.publish(point_cloud_msg);
-
-  // Publish ROS mesh
-  shape_msgs::Mesh::Ptr ros_mesh(new shape_msgs::Mesh);
-  extractMeshToRosMesh(ros_mesh);
-  ROS_INFO("got ros mesh");
-
-  complete_mesh_pub_.publish(ros_mesh);
+//  // Publish point cloud.
+//  pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_pcl(
+//      new pcl::PointCloud<pcl::PointXYZ>);
+//
+//  extractMeshToPcl(point_cloud_pcl);
+//  ROS_INFO("got point cloud");
+//
+//  sensor_msgs::PointCloud2 point_cloud_msg;
+//  pcl::toROSMsg(*point_cloud_pcl, point_cloud_msg);
+//  point_cloud_msg.header.frame_id = camera_frame_id_;
+//  point_cloud_msg.header.stamp = ros::Time::now();
+//
+//  complete_point_cloud_pub_.publish(point_cloud_msg);
+//
+//  // Publish ROS mesh
+//  shape_msgs::Mesh::Ptr ros_mesh(new shape_msgs::Mesh);
+//  extractMeshToRosMesh(ros_mesh);
+//  ROS_INFO("got ros mesh");
+//
+//  complete_mesh_pub_.publish(ros_mesh);
 
   return true;
 }
@@ -273,8 +282,8 @@ void InfinitamNode::extractMeshToPcl(
   point_cloud_pcl->width = main_engine_->GetMesh()->noTotalTriangles * 3;
   point_cloud_pcl->height = 1;
   point_cloud_pcl->is_dense = false;
-  point_cloud_pcl->points.resize(point_cloud_pcl->width *
-                                 point_cloud_pcl->height);
+  point_cloud_pcl->points.resize(
+      point_cloud_pcl->width * point_cloud_pcl->height);
 
   ROS_ERROR_COND(main_engine_->GetMesh()->noTotalTriangles < 1,
                  "The mesh has too few triangles, only: %d",
@@ -326,7 +335,7 @@ void InfinitamNode::extractMeshToRosMesh(shape_msgs::Mesh::Ptr ros_mesh) {
   }
 
   ITMMesh::Triangle* triangleArray = cpu_triangles->GetData(MEMORYDEVICE_CPU);
-  ROS_INFO("asdf");
+//  ROS_INFO("asdf");
 
   ROS_ERROR_COND(main_engine_->GetMesh()->noTotalTriangles < 1,
                  "The mesh has too few triangles, only: %d",
@@ -339,7 +348,7 @@ void InfinitamNode::extractMeshToRosMesh(shape_msgs::Mesh::Ptr ros_mesh) {
   long index = 0;
   // All vertices of the infinitam mesh are stored in a ROS Mesh.
   for (long i = 0; i < main_engine_->GetMesh()->noTotalTriangles; ++i) {
-    ROS_INFO_STREAM("asdf" << i);
+//    ROS_INFO_STREAM("asdf" << i);
 
     vertices.x = triangleArray[i].p0.x;
     vertices.y = triangleArray[i].p0.y;
@@ -361,9 +370,8 @@ void InfinitamNode::extractMeshToRosMesh(shape_msgs::Mesh::Ptr ros_mesh) {
 
     ros_mesh->triangles.push_back(ros_triangle);
   }
-  ROS_INFO_STREAM("ROS mesh has "
-                  << ros_mesh->triangles.size() << " triangles, "
-                  << "and " << ros_mesh->vertices.size() << " vertices.");
+  ROS_INFO_STREAM(
+      "ROS mesh has " << ros_mesh->triangles.size() << " triangles, " << "and " << ros_mesh->vertices.size() << " vertices.");
   //  ros_mesh->mergeVertices(0.05);
   //  ROS_INFO("got ros mesh");
 
@@ -387,8 +395,9 @@ void InfinitamNode::readParameters() {
   node_handle_.param<float>("viewFrustum_min",
                             internal_settings_->sceneParams.viewFrustum_min,
                             0.35f);
-  node_handle_.param<float>(
-      "viewFrustum_max", internal_settings_->sceneParams.viewFrustum_max, 3.0f);
+  node_handle_.param<float>("viewFrustum_max",
+                            internal_settings_->sceneParams.viewFrustum_max,
+                            3.0f);
 
   node_handle_.param<std::string>("camera_frame_id", camera_frame_id_,
                                   "sr300_depth_optical_frame");
@@ -409,23 +418,26 @@ void InfinitamNode::SetUpSources() {
     printf("using rgb images: %s\nusing depth images: %s\n",
            depth_image_filename, rgb_image_filename);
     if (filename_imu == NULL) {
-      image_source_ = new ImageFileReader(
-          calibration_filename, depth_image_filename, rgb_image_filename);
+      image_source_ = new ImageFileReader(calibration_filename,
+                                          depth_image_filename,
+                                          rgb_image_filename);
     } else {
       printf("using imu data: %s\n", filename_imu);
-      image_source_ =
-          new RawFileReader(calibration_filename, depth_image_filename,
-                            rgb_image_filename, Vector2i(320, 240), 0.5f);
+      image_source_ = new RawFileReader(calibration_filename,
+                                        depth_image_filename,
+                                        rgb_image_filename, Vector2i(320, 240),
+                                        0.5f);
       imu_source_ = new IMUSourceEngine(filename_imu);
     }
   }
 
   if (image_source_ == NULL) {
-    printf("trying OpenNI device: %s\n", (depth_image_filename == NULL)
-                                             ? "<OpenNI default device>"
-                                             : depth_image_filename);
-    image_source_ =
-        new OpenNIEngine(calibration_filename, depth_image_filename);
+    printf(
+        "trying OpenNI device: %s\n",
+        (depth_image_filename == NULL) ?
+            "<OpenNI default device>" : depth_image_filename);
+    image_source_ = new OpenNIEngine(calibration_filename,
+                                     depth_image_filename);
     if (image_source_->getDepthImageSize().x == 0) {
       delete image_source_;
       image_source_ = NULL;
@@ -452,21 +464,21 @@ void InfinitamNode::SetUpSources() {
     printf("Checking if there are suitable ROS messages being published.\n");
 
     pose_source_ = new RosPoseSourceEngine(node_handle_);
-    image_source_ =
-        new RosImageSourceEngine(node_handle_, calibration_filename);
+    image_source_ = new RosImageSourceEngine(node_handle_,
+                                             calibration_filename);
 
     // Get images from ROS topic.
     rgb_sub_ = node_handle_.subscribe(rgb_image_topic, 10,
                                       &RosImageSourceEngine::rgbCallback,
-                                      (RosImageSourceEngine*)image_source_);
+                                      (RosImageSourceEngine*) image_source_);
 
     depth_sub_ = node_handle_.subscribe(depth_image_topic, 10,
                                         &RosImageSourceEngine::depthCallback,
-                                        (RosImageSourceEngine*)image_source_);
+                                        (RosImageSourceEngine*) image_source_);
 
-    tf_sub_ =
-        node_handle_.subscribe("/tf", 10, &RosPoseSourceEngine::TFCallback,
-                               (RosPoseSourceEngine*)pose_source_);
+    tf_sub_ = node_handle_.subscribe("/tf", 10,
+                                     &RosPoseSourceEngine::TFCallback,
+                                     (RosPoseSourceEngine*) pose_source_);
 
     if (image_source_->getDepthImageSize().x == 0) {
       delete image_source_;
