@@ -2,7 +2,6 @@
 
 #include "ITMExternalTracker.h"
 
-#include <glog/logging.h>
 #include <math.h>
 
 #include "../../ORUtils/Cholesky.h"
@@ -19,7 +18,6 @@ ITMExternalTracker::ITMExternalTracker(Vector2i imgSize,
       imgSize, trackingRegime, noHierarchyLevels, memoryType);
 
   this->lowLevelEngine = lowLevelEngine;
-  LOG(INFO)<<"ITMExternalTracker";
 }
 
 ITMExternalTracker::~ITMExternalTracker(void) {

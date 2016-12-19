@@ -48,7 +48,7 @@ void RosPoseSourceEngine::TFCallback(const tf::tfMessage& tf_msg) {
           tf_world_to_camera_transform_current_;
       // Set the infinitam inertial coordinate system.
       Vector3f zero_vector;
-      zero_vector.x = zero_vector.y = zero_vector.z = 0.0;
+      zero_vector.x = zero_vector.y = zero_vector.z = 0.0f;
       Matrix3f identity;
       identity.setIdentity();
       main_engine_->GetTrackingState()->pose_d->SetT(zero_vector);

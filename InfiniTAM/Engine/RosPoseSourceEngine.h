@@ -88,6 +88,5 @@ class RosPoseSourceEngine : public PoseSourceEngine {
   bool hasMoreMeasurements(void);
   void getMeasurement(ITMPoseMeasurement* pose);
 };
-}
-// namespace Engine
+}  // namespace Engine
 }  // namespace InfiniTAM
