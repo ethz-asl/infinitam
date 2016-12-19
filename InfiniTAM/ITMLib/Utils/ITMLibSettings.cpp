@@ -83,7 +83,7 @@ ITMLibSettings::ITMLibSettings(void)
         "Error: Color tracker requires a voxel type with color information!\n");
   }
   if (trackerType == TRACKER_EXTERNAL) {
-    LOG(INFO) << "TRACKER_EXTERNAL";
+    std::cout << "TRACKER_EXTERNAL" << std::endl;
   }
 }
 
