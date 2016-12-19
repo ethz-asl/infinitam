@@ -1,6 +1,6 @@
 // Copyright 2014-2015 Isis Innovation Limited and the authors of InfiniTAM
 
-#include "RosEngine.h"
+#include "RosImageSourceEngine.h"
 
 #include <cstdio>
 #include <stdexcept>
@@ -13,7 +13,8 @@
 namespace InfiniTAM {
 namespace Engine {
 
-RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
+RosImageSourceEngine::RosImageSourceEngine(ros::NodeHandle& nh,
+                                           const char*& calibration_filename)
     : ImageSourceEngine(calibration_filename),
       rgb_ready_(false),
       depth_ready_(false),
@@ -28,30 +29,18 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
   nh.param<std::string>("depth_camera_info_topic", depth_camera_info_topic_,
                         "/camera/depth/camera_info");
 
-  nh.param<std::string>("camera_depth_frame", camera_frame_id_, "/world");
-
-  nh.param<std::string>("complete_table_top_scene_topic", complete_cloud_topic_,
-                        "/complete_cloud");
-
   depth_info_sub = nh.subscribe(depth_camera_info_topic_, 1,
-                                &RosEngine::depthCameraInfoCallback,
-                                static_cast<RosEngine*>(this));
-  rgb_info_sub =
-      nh.subscribe(rgb_camera_info_topic_, 1, &RosEngine::rgbCameraInfoCallback,
-                   static_cast<RosEngine*>(this));
-
-  complete_point_cloud_pub_ =
-      nh.advertise<sensor_msgs::PointCloud2>(complete_cloud_topic_, 1);
+                                &RosImageSourceEngine::depthCameraInfoCallback,
+                                static_cast<RosImageSourceEngine*>(this));
+  rgb_info_sub = nh.subscribe(rgb_camera_info_topic_, 1,
+                              &RosImageSourceEngine::rgbCameraInfoCallback,
+                              static_cast<RosImageSourceEngine*>(this));
 
   while (!rgb_info_ready_ || !depth_info_ready_) {
     ROS_INFO("Spinning, waiting for rgb and depth camera info messages.");
     ros::spinOnce();
     ros::Duration(1.0).sleep();
   }
-
-  // initialize service
-  publish_scene_service_ = nh.advertiseService(
-      "publish_scene", &RosEngine::publishMap, static_cast<RosEngine*>(this));
 
   // ROS depth images come in millimeters... (or in floats, which we don't
   // support yet)
@@ -76,9 +65,10 @@ RosEngine::RosEngine(ros::NodeHandle& nh, const char*& calibration_filename)
   this->calib.disparityCalib.params = Vector2f(1.0f / 1000.0f, 0.0f);
 }
 
-RosEngine::~RosEngine() {}
+RosImageSourceEngine::~RosImageSourceEngine() {}
 
-void RosEngine::rgbCallback(const sensor_msgs::Image::ConstPtr& msg) {
+void RosImageSourceEngine::rgbCallback(
+    const sensor_msgs::Image::ConstPtr& msg) {
   if (!rgb_ready_ && data_available_) {
     std::lock_guard<std::mutex> guard(rgb_mutex_);
     rgb_ready_ = true;
@@ -88,17 +78,23 @@ void RosEngine::rgbCallback(const sensor_msgs::Image::ConstPtr& msg) {
   }
 }
 
-void RosEngine::depthCallback(const sensor_msgs::Image::ConstPtr& msg) {
+void RosImageSourceEngine::depthCallback(
+    const sensor_msgs::Image::ConstPtr& msg) {
   if (!depth_ready_ && data_available_) {
     std::lock_guard<std::mutex> guard(depth_mutex_);
     depth_ready_ = true;
-
+    // BUG: When getting the stamp from the message tf sais that it cannot
+    // extrapolate to the future. This does not happen all the time but only
+    // with a portion of the messages. tf streaming at 245Hz and camera at 30Hz.
+    // depth_msg_time_stamp_ = msg->header.stamp;
+    depth_msg_time_stamp_ = ros::Time(0);
+    main_engine_->setImageTimeStamp(depth_msg_time_stamp_.toSec());
     cv_depth_image_ =
         cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_16UC1);
   }
 }
 
-void RosEngine::rgbCameraInfoCallback(
+void RosImageSourceEngine::rgbCameraInfoCallback(
     const sensor_msgs::CameraInfo::ConstPtr& msg) {
   image_size_rgb_.x = msg->width;
   image_size_rgb_.y = msg->height;
@@ -107,7 +103,7 @@ void RosEngine::rgbCameraInfoCallback(
   ROS_INFO("Got rgb camera info.");
 }
 
-void RosEngine::depthCameraInfoCallback(
+void RosImageSourceEngine::depthCameraInfoCallback(
     const sensor_msgs::CameraInfo::ConstPtr& msg) {
   image_size_depth_.x = msg->width;
   image_size_depth_.y = msg->height;
@@ -116,9 +112,10 @@ void RosEngine::depthCameraInfoCallback(
   ROS_INFO("Got depth camera info.");
 }
 
-void RosEngine::getImages(ITMUChar4Image* rgb_image,
-                          ITMShortImage* raw_depth_image) {
-  // ROS_INFO("getImages().");
+void RosImageSourceEngine::getImages(ITMUChar4Image* rgb_image,
+                                     ITMShortImage* raw_depth_image) {
+  //  ROS_INFO("getImages().");
+
   // Wait for frames.
   if (!data_available_) {
     return;
@@ -154,6 +151,7 @@ void RosEngine::getImages(ITMUChar4Image* rgb_image,
     pixel_value.w = 255;
     rgb_infinitam[i / 3] = pixel_value;
   }
+
   // ROS_INFO("processing rgb done.");
   rgb_ready_ = false;
   depth_ready_ = false;
@@ -161,86 +159,18 @@ void RosEngine::getImages(ITMUChar4Image* rgb_image,
 }
 
 // bool RosEngine::hasMoreImages(void) { return (rgb_ready_ && depth_ready_); }
-bool RosEngine::hasMoreImages(void) {
+bool RosImageSourceEngine::hasMoreImages(void) {
   if (!rgb_ready_ || !depth_ready_) {
     ros::spinOnce();
     return false;
   }
   return true;
 }
-Vector2i RosEngine::getDepthImageSize(void) { return image_size_depth_; }
-Vector2i RosEngine::getRGBImageSize(void) { return image_size_rgb_; }
-
-void RosEngine::extractMeshToPcl(
-    pcl::PointCloud<pcl::PointXYZ>::Ptr out_cloud) {
-  CHECK_NOTNULL(main_engine_);
-  CHECK_NOTNULL(main_engine_->GetMesh());
-
-  main_engine_->GetMeshingEngine()->MeshScene(main_engine_->GetMesh(),
-                                              main_engine_->GetScene());
-
-  ORUtils::MemoryBlock<ITMMesh::Triangle>* cpu_triangles;
-  bool rm_triangle_in_cuda_memory = false;
-
-  if (main_engine_->GetMesh()->memoryType == MEMORYDEVICE_CUDA) {
-    cpu_triangles = new ORUtils::MemoryBlock<ITMMesh::Triangle>(
-        main_engine_->GetMesh()->noMaxTriangles, MEMORYDEVICE_CPU);
-    cpu_triangles->SetFrom(
-        main_engine_->GetMesh()->triangles,
-        ORUtils::MemoryBlock<ITMMesh::Triangle>::CUDA_TO_CPU);
-    rm_triangle_in_cuda_memory = true;
-  } else {
-    cpu_triangles = main_engine_->GetMesh()->triangles;
-  }
-
-  ITMMesh::Triangle* triangleArray = cpu_triangles->GetData(MEMORYDEVICE_CPU);
-
-  out_cloud->width = main_engine_->GetMesh()->noTotalTriangles *
-                     3;  // Point cloud has at least 3 points per triangle.
-  out_cloud->height = 1;
-  out_cloud->is_dense = false;
-  out_cloud->points.resize(out_cloud->width * out_cloud->height);
-
-  ROS_INFO_STREAM("This mesh has " << main_engine_->GetMesh()->noTotalTriangles
-                                   << " triangles");
-
-  const std::string meshFileName = "test.stl";
-
-  // All vertices of the mesh are stored in the pcl point cloud.
-  for (int64 i = 0; i < main_engine_->GetMesh()->noTotalTriangles * 3;
-       i = i + 3) {
-    out_cloud->points[i].x = triangleArray[i].p0.x;
-    out_cloud->points[i].y = triangleArray[i].p0.y;
-    out_cloud->points[i].z = triangleArray[i].p0.z;
-
-    out_cloud->points[i + 1].x = triangleArray[i].p1.x;
-    out_cloud->points[i + 1].y = triangleArray[i].p1.y;
-    out_cloud->points[i + 1].z = triangleArray[i].p1.z;
-
-    out_cloud->points[i + 2].x = triangleArray[i].p2.x;
-    out_cloud->points[i + 2].y = triangleArray[i].p2.y;
-    out_cloud->points[i + 2].z = triangleArray[i].p2.z;
-  }
-
-  if (rm_triangle_in_cuda_memory) {
-    delete cpu_triangles;
-  }
+Vector2i RosImageSourceEngine::getDepthImageSize(void) {
+  return image_size_depth_;
 }
+Vector2i RosImageSourceEngine::getRGBImageSize(void) { return image_size_rgb_; }
 
-bool RosEngine::publishMap(std_srvs::Empty::Request& request,
-                           std_srvs::Empty::Response& response) {
-  pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_pcl;
-  sensor_msgs::PointCloud2 point_cloud_msg;
-
-  extractMeshToPcl(point_cloud_pcl);
-  pcl::toROSMsg(*point_cloud_pcl, point_cloud_msg);
-  point_cloud_msg.header.frame_id = camera_frame_id_;
-  point_cloud_msg.header.stamp = ros::Time::now();
-
-  complete_point_cloud_pub_.publish(point_cloud_msg);
-
-  return true;
-}
 }  // namespace Engine
 }  // namespace InfiniTAM
 #else
@@ -248,19 +178,21 @@ bool RosEngine::publishMap(std_srvs::Empty::Request& request,
 namespace InfiniTAM {
 namespace Engine {
 
-RosEngine::RosEngine(const ros::NodeHandle& nh,
-                     const char*& calibration_filename)
+RosImageSourceEngine::RosImageSourceEngine(const ros::NodeHandle& nh,
+                                           const char*& calibration_filename)
     : ImageSourceEngine(calibration_filename) {
   printf("Compiled without ROS support.\n");
 }
-RosEngine::~RosEngine() {}
-void RosEngine::getImages(ITMUChar4Image* rgb_image,
-                          ITMShortImage* raw_depth_image) {
+RosImageSourceEngine::~RosImageSourceEngine() {}
+void RosImageSourceEngine::getImages(ITMUChar4Image* rgb_image,
+                                     ITMShortImage* raw_depth_image) {
   return;
 }
-bool RosEngine::hasMoreImages(void) { return false; }
-Vector2i RosEngine::getDepthImageSize(void) { return Vector2i(0, 0); }
-Vector2i RosEngine::getRGBImageSize(void) { return Vector2i(0, 0); }
+bool RosImageSourceEngine::hasMoreImages(void) { return false; }
+Vector2i RosImageSourceEngine::getDepthImageSize(void) {
+  return Vector2i(0, 0);
+}
+Vector2i RosImageSourceEngine::getRGBImageSize(void) { return Vector2i(0, 0); }
 }  // namespace Engine
 }  // namespace InfiniTAM
 

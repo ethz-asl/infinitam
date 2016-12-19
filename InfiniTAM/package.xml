@@ -5,7 +5,9 @@
   <description>The model_fitting package</description>
 
   <maintainer email="fadri.furrer@mavt.ethz.ch">Fadri Furrer</maintainer>
+  <maintainer email="gocarlos@mavt.ethz.ch">Carlos Gomes</maintainer>
   <author>Fadri Furrer</author>
+  <author>Carlos Gomes</author>
   <license>TODO</license>
 
   <buildtool_depend>catkin</buildtool_depend>
@@ -18,7 +20,7 @@
   <depend>pcl_catkin</depend>
   <depend>pcl_conversions</depend>
   <depend>pcl_ros</depend>
-  <depend>librealsense</depend>
+  <!--<depend>librealsense</depend>-->
 
   <export>
   </export>

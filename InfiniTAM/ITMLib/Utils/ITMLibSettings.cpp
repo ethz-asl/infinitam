@@ -41,11 +41,11 @@ ITMLibSettings::ITMLibSettings(void)
   useBilateralFilter = false;
 
   // trackerType = TRACKER_COLOR;
-  trackerType = TRACKER_ICP;
+  trackerType = TRACKER_EXTERNAL;
+  // trackerType = TRACKER_ICP;
   // trackerType = TRACKER_REN;
   // trackerType = TRACKER_IMU;
   // trackerType = TRACKER_WICP;
-  // trackerType = TRACKER_EXTERNAL;
 
   /// model the sensor noise as  the weight for weighted ICP
   modelSensorNoise = false;
@@ -83,7 +83,7 @@ ITMLibSettings::ITMLibSettings(void)
         "Error: Color tracker requires a voxel type with color information!\n");
   }
   if (trackerType == TRACKER_EXTERNAL) {
-    LOG(INFO) << "TRACKER_EXTERNAL";
+    std::cout << "TRACKER_EXTERNAL" << std::endl;
   }
 }
 

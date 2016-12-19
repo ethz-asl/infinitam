@@ -2,15 +2,13 @@
 
 #include "PoseSourceEngine.h"
 
-#include "../Utils/FileUtils.h"
-
 #include <stdio.h>
 
-using namespace InfiniTAM::Engine;
+#include "../Utils/FileUtils.h"
 
-PoseSourceEngine::PoseSourceEngine(const char* poseMask) {
-  strncpy(this->poseMask, poseMask, BUF_SIZE);
-
+namespace InfiniTAM {
+namespace Engine {
+PoseSourceEngine::PoseSourceEngine() {
   currentFrameNo = 0;
   cachedFrameNo = -1;
 
@@ -18,33 +16,11 @@ PoseSourceEngine::PoseSourceEngine(const char* poseMask) {
 }
 
 void PoseSourceEngine::loadPoseIntoCache(void) {
-  char str[2048];
-  FILE* f;
-  bool success = false;
-
-  cached_pose = new ITMPose();
-
-  sprintf(str, poseMask, currentFrameNo);
-  f = fopen(str, "r");
-  if (f) {
-    size_t ret =
-        fscanf(f, "%f %f %f %f %f %f %f", /*TODO(gocarlos): Implement this*/);
-
-    fclose(f);
-
-    if (ret == 9) success = true;
-  }
-
-  if (!success) {
-    delete cached_pose;
-    cached_pose = NULL;
-    printf("error reading file '%s'\n", str);
-  }
+  // TODO(gocarlos): Implement this
 }
 
 bool PoseSourceEngine::hasMoreMeasurements(void) {
   loadPoseIntoCache();
-
   return (cached_pose != NULL);
 }
 
@@ -53,6 +29,7 @@ void PoseSourceEngine::getMeasurement(ITMPoseMeasurement* pose) {
 
   if (cached_pose != NULL) {
     pose->R = cached_pose->R;
+    pose->T = cached_pose->T;
     delete cached_pose;
     cached_pose = NULL;
     bUsedCache = true;
@@ -62,3 +39,6 @@ void PoseSourceEngine::getMeasurement(ITMPoseMeasurement* pose) {
 
   ++currentFrameNo;
 }
+
+}  // Namespace Engine
+}  // Namespace InfiniTAM

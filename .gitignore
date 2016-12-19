@@ -1,7 +1,7 @@
-# Eclipse
+#Eclipse
 .cproject
 .project
-.settings/
+.settings
 
 # Doxygen
 /InfiniTAM/doxygen-html/
