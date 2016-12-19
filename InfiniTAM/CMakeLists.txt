@@ -5,6 +5,9 @@ add_definitions(-std=c++11)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
+find_package(catkin_simple REQUIRED)
+catkin_simple(ALL_DEPS_REQUIRED)
+
 IF(WITH_CUDA)
     list(APPEND CUDA_NVCC_FLAGS "-std=c++11")
 ELSE()
@@ -74,8 +77,7 @@ ELSE()
   add_definitions(-DCOMPILE_WITHOUT_CUDA)
 ENDIF()
 
-find_package(catkin_simple REQUIRED)
-catkin_simple(ALL_DEPS_REQUIRED)
+
 
 find_package(OpenNI QUIET)
 CANONIFY_BOOL(OPENNI_FOUND)
