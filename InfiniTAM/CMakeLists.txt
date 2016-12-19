@@ -11,7 +11,6 @@ ELSE()
     SET(CUDA_PROPAGATE_HOST_FLAGS OFF)
 ENDIF()
 
-
 macro(CANONIFY_BOOL var)
   if (${var})
     set(${var} TRUE)
