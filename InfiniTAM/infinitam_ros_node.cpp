@@ -21,7 +21,6 @@
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <shape_msgs/Mesh.h>
-//#include <shapes.h>
 #include <geometric_shapes/shapes.h>
 
 #include <std_srvs/Empty.h>
@@ -115,7 +114,7 @@ class InfinitamNode {
   //! ROS Mesh of the map.
   shape_msgs::Mesh ros_scene_mesh_;
 
-  pcl::PolygonMesh mesh;
+  pcl::PolygonMesh::Ptr mesh_ptr;  //(new pcl::PolygonMesh);
 
 };
 
@@ -141,6 +140,8 @@ InfinitamNode::InfinitamNode(int& argc, char** argv)
 
   complete_mesh_pub_ = node_handle_.advertise<shape_msgs::Mesh>(
       complete_mesh_topic_, 1);
+
+  mesh_ptr.reset(new pcl::PolygonMesh);
 }
 
 InfinitamNode::~InfinitamNode() {
@@ -150,6 +151,7 @@ InfinitamNode::~InfinitamNode() {
   if (imu_source_ != NULL)
     delete imu_source_;
 }
+
 bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
                                    std_srvs::SetBool::Response& response) {
   // turn on infinitam
@@ -237,10 +239,9 @@ bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
 bool InfinitamNode::publishMap(std_srvs::Empty::Request& request,
                                std_srvs::Empty::Response& response) {
 
-  //////////////////////////////////////////////////////////
   main_engine_->GetMeshingEngine()->MeshScene(main_engine_->GetMesh(),
                                               main_engine_->GetScene());
-
+  //////////////////////////////////////////////////////////
 //  std::string filename = "../output_" + std::to_string(ros::Time::now().toSec())
 //      + ".stl";
 //  main_engine_->GetMesh()->WriteSTL(filename.c_str());
@@ -264,111 +265,128 @@ bool InfinitamNode::publishMap(std_srvs::Empty::Request& request,
 
   ITMMesh::Triangle *triangleArray = cpu_triangles->GetData(MEMORYDEVICE_CPU);
 
-  std::size_t nr_point = 0;
-  nr_point = main_engine_->GetMesh()->noTotalTriangles;
-  std::cout << "nr_point:  " << nr_point << " \n";
+  LOG(INFO)<< "main_engine_->GetMesh(): " << main_engine_->GetMesh() << " \n";
+  LOG(INFO)<< "triangleArray:  " << triangleArray << " \n";
+  LOG(INFO)<< "cpu_triangles:  " << cpu_triangles << " \n";
+
+  std::size_t nr_triangles = 0;
+  nr_triangles = main_engine_->GetMesh()->noTotalTriangles;
+//  for (uint i = 0; i < nr_point; i++) {
+//    printf("v %f %f %f\n", triangleArray[i].p0.x, triangleArray[i].p0.y,
+//            triangleArray[i].p0.z);
+//    printf("v %f %f %f\n", triangleArray[i].p1.x, triangleArray[i].p1.y,
+//            triangleArray[i].p1.z);
+//    printf("v %f %f %f\n", triangleArray[i].p2.x, triangleArray[i].p2.y,
+//            triangleArray[i].p2.z);
+//  }
+//
+//  for (uint i = 0; i < nr_point; i++) {
+//    printf("f %d %d %d\n", i * 3 + 2 + 1, i * 3 + 1 + 1, i * 3 + 0 + 1);
+//  }
+
+  LOG(INFO)<< "nr_triangles:  " << nr_triangles << " \n";
 
   // Build the point cloud.
-  pcl::PCLPointCloud2 cloud;
-  cloud.width = cloud.height = cloud.point_step = cloud.row_step = 0;
-  cloud.data.clear();
+  pcl::PCLPointCloud2::Ptr cloud_ptr(new pcl::PCLPointCloud2);
+  cloud_ptr->width = cloud_ptr->height = cloud_ptr->point_step = cloud_ptr
+      ->row_step = 0;
+  cloud_ptr->data.clear();
+  LOG(INFO)<< "cloud_ptr:  " << cloud_ptr << " \n";
 
   int field_offset = 0;
   for (int i = 0; i < 3; ++i, field_offset += 4) {
-    cloud.fields.push_back(pcl::PCLPointField());
-    cloud.fields[i].offset = field_offset;
-    cloud.fields[i].datatype = pcl::PCLPointField::FLOAT32;
-    cloud.fields[i].count = 1;
+    cloud_ptr->fields.push_back(pcl::PCLPointField());
+    cloud_ptr->fields[i].offset = field_offset;
+    cloud_ptr->fields[i].datatype = pcl::PCLPointField::FLOAT32;
+    cloud_ptr->fields[i].count = 1;
   }
 
-  cloud.fields[0].name = "x";
-  cloud.fields[1].name = "y";
-  cloud.fields[2].name = "z";
+  cloud_ptr->fields[0].name = "x";
+  cloud_ptr->fields[1].name = "y";
+  cloud_ptr->fields[2].name = "z";
 
-  cloud.point_step = field_offset;
-  cloud.width = nr_point;
-  cloud.height = 1;
-  cloud.row_step = cloud.point_step * cloud.width;
-  cloud.is_dense = true;
-  cloud.data.resize(cloud.point_step * nr_point);
-  std::cout << "cloud created. \n";
+  cloud_ptr->point_step = field_offset;
+  cloud_ptr->width = nr_triangles;
+  cloud_ptr->height = 1;
+  cloud_ptr->row_step = cloud_ptr->point_step * cloud_ptr->width;
+  cloud_ptr->is_dense = true;
+  cloud_ptr->data.resize(cloud_ptr->point_step * nr_triangles*5);
+  LOG(INFO) << "cloud_ptr->data.size: " << cloud_ptr->data.size() << " \n";
+  LOG(INFO) << "cloud created:  " << " \n";
 
-  pcl::PolygonMesh::Ptr mesh_ptr;  //(new pcl::PolygonMesh);
-  mesh.cloud = cloud;
-  mesh.polygons.reserve(nr_point);
+  mesh_ptr->cloud = *cloud_ptr;
+  mesh_ptr->polygons.reserve(nr_triangles);
 
 // write vertices
-  std::size_t v_idx = 0;
-  float value = 0;
+  long v_idx = 0;
 
-  pcl::Vertices face_vertices;
-//  face_vertices.vertices.resize(3);
-  face_vertices.vertices.reserve(3);
-  int v = 0;
-  std::cout << "going to fill the mesh with points. \n";
+  pcl::Vertices::Ptr face_vertices(new pcl::Vertices);
+  face_vertices->vertices.reserve(3);
+  std::size_t v = 0;
+  LOG(INFO)<< "going to fill the mesh with points. \n";
+  LOG(INFO)<< "face_vertices:  " << face_vertices << " \n";
 
-  for (uint i = 0; i < nr_point; i++) {
+  for (uint i = 0; i < nr_triangles; ++i) {
 
     for (size_t f = 0; f < 3; ++f) {
-      value = triangleArray[i].p0[f];
+      float value = triangleArray[i].p0[f];
       memcpy(
-          &mesh.cloud.data[v_idx * mesh.cloud.point_step
-              + mesh.cloud.fields[f].offset],
+          &mesh_ptr->cloud.data[v_idx * mesh_ptr->cloud.point_step
+              + mesh_ptr->cloud.fields[f].offset],
+          &value, sizeof(float));
+      ++v_idx;
+    }  // for one point
+
+    for (size_t f = 0; f < 3; ++f) {
+      float value = triangleArray[i].p1[f];
+      memcpy(
+          &mesh_ptr->cloud.data[v_idx * mesh_ptr->cloud.point_step
+              + mesh_ptr->cloud.fields[f].offset],
           &value, sizeof(float));
       ++v_idx;
     }
 
     for (size_t f = 0; f < 3; ++f) {
-      value = triangleArray[i].p1[f];
+      float value = triangleArray[i].p2[f];
       memcpy(
-          &mesh.cloud.data[v_idx * mesh.cloud.point_step
-              + mesh.cloud.fields[f].offset],
+          &mesh_ptr->cloud.data[v_idx * mesh_ptr->cloud.point_step
+              + mesh_ptr->cloud.fields[f].offset],
           &value, sizeof(float));
       ++v_idx;
     }
 
-    for (size_t f = 0; f < 3; ++f) {
-      value = triangleArray[i].p2[f];
-      memcpy(
-          &mesh.cloud.data[v_idx * mesh.cloud.point_step
-              + mesh.cloud.fields[f].offset],
-          &value, sizeof(float));
-      ++v_idx;
-    }
-  }
+    LOG(INFO)<< "v_idx * mesh_ptr->cloud.point_step + mesh_ptr->cloud.fields[2].offset: "
+    << v_idx * mesh_ptr->cloud.point_step + mesh_ptr->cloud.fields[2].offset<<" but size is"<<mesh_ptr->cloud.data.size() ;
+
+  }  // for one one triangle
+
+  std::cout << "cloud filled: header: " << mesh_ptr->cloud.header
+            << " \nheight: " << mesh_ptr->cloud.height << "\nwidth: "
+            << mesh_ptr->cloud.width << "\nfields.size()"
+            << mesh_ptr->cloud.fields.size() << "\n";
+
   std::cout << "going to fill the mesh with vertices. \n";
 
-  mesh_ptr.reset(&mesh);
-  if (shoulDelete) {
-    delete cpu_triangles;
-  }
-
-  // write faces
-  for (uint i = 0; i < nr_point; i++) {
+//   write faces
+  for (uint i = 0; i < nr_triangles; i++) {
     std::cout << " --write faces. ";
-//    printf("f %d %d %d\n", i * 3 + 2 + 1, i * 3 + 1 + 1, i * 3 + 0 + 1);
-    v = i * 3 + 2 + 1;
-//    v = (v < 0) ? v_idx + v : v - 1;
-    v = v - 1;
-    face_vertices.vertices[0] = v;
+    v = i * 3 + 2;
+    face_vertices->vertices[0] = v;
 //    face_vertices.vertices.push_back(v);
 
-    v = i * 3 + 1 + 1;
-//    v = (v < 0) ? v_idx + v : v - 1;
-    v = v - 1;
-    face_vertices.vertices[1] = v;
+    v = i * 3 + 1;
+    face_vertices->vertices[1] = v;
 //    face_vertices.vertices.push_back(v);
 
-    v = i * 3 + 0 + 1;
-//    v = (v < 0) ? v_idx + v : v - 1;
-    v = v - 1;
-    face_vertices.vertices[2] = v;
+    v = i * 3 + 0;
+    face_vertices->vertices[2] = v;
 //    face_vertices.vertices.push_back(v);
 
-    std::cout << "write faces end: " << i << " and " << mesh.polygons.size()
-              << " polygons.\n";
 
-    mesh.polygons.push_back(face_vertices);
+    mesh_ptr->polygons.push_back(*face_vertices);
+
+    std::cout << "write faces end: " << i << " and "
+              << mesh_ptr->polygons.size() << " polygons.\n";
 //    face_vertices.vertices.clear();
 
   }
@@ -406,9 +424,16 @@ bool InfinitamNode::publishMap(std_srvs::Empty::Request& request,
 
 //  complete_mesh_pub_.publish(ros_scene_mesh_);
 
-  std::cout << "Loaded a PolygonMesh with "
-            << mesh.cloud.width * mesh.cloud.height << " points and"
-            << mesh.polygons.size() << " polygons.\n";
+//  std::cout << "Loaded a PolygonMesh with "
+//            << mesh.cloud.width * mesh.cloud.height << " points and"
+//            << mesh.polygons.size() << " polygons.\n";
+
+//  if (shoulDelete) {
+//    delete cpu_triangles;
+//  }
+//
+//  delete triangleArray;
+  LOG(INFO)<<"asdöflkajsödfjk";
   return true;
 }
 
@@ -416,7 +441,7 @@ void InfinitamNode::extractMeshToPcl(
     pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_pcl) {
   CHECK_NOTNULL(main_engine_);
   CHECK_NOTNULL(&point_cloud_pcl);
-  ROS_INFO("extractMeshToPcl");
+  LOG(INFO)<<"extractMeshToPcl";
 
   main_engine_->GetMeshingEngine()->MeshScene(main_engine_->GetMesh(),
                                               main_engine_->GetScene());
@@ -552,7 +577,7 @@ bool InfinitamNode::meshToShapeMsg(const pcl::PolygonMesh& in,
 
   mesh.vertices.resize(size);
 
-  std::cout << "polys: " << pcl_msg_mesh.polygons.size() << " vertices: "
+  LOG(INFO) << "polys: " << pcl_msg_mesh.polygons.size() << " vertices: "
             << pcd_modifier.size() << "\n";
 
   sensor_msgs::PointCloud2ConstIterator<float> pt_iter(pcl_msg_mesh.cloud, "x");
@@ -565,13 +590,13 @@ bool InfinitamNode::meshToShapeMsg(const pcl::PolygonMesh& in,
 
 //   ROS_INFO("Found %ld polygons", triangles.size());
 
-  std::cout << "Updated vertices" << "\n";
+  LOG(INFO) << "Updated vertices" << "\n";
 
   mesh.triangles.resize(in.polygons.size());
 
   for (size_t i = 0; i < in.polygons.size(); ++i) {
     if (in.polygons[i].vertices.size() < 3) {
-      ROS_WARN("Not enough points in polygon. Ignoring it.");
+      LOG(WARNING)<<"Not enough points in polygon. Ignoring it.";
       continue;
     }
 
