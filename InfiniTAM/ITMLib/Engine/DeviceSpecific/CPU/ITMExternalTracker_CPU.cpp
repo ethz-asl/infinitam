@@ -18,10 +18,8 @@ ITMExternalTracker_CPU::ITMExternalTracker_CPU(
 ITMExternalTracker_CPU::~ITMExternalTracker_CPU(void) {}
 
 void ITMExternalTracker_CPU::F_oneLevel(float* f, ITMPose* pose) {
-  LOG(FATAL) << "not implemented yet";
 }
 
 void ITMExternalTracker_CPU::G_oneLevel(float* gradient, float* hessian,
                                         ITMPose* pose) const {
-  LOG(FATAL) << "not implemented yet";
 }

@@ -2,8 +2,6 @@
 
 #include "ITMExternalTracker_CUDA.h"
 
-#include <glog/logging.h>
-
 #include "../../DeviceAgnostic/ITMExternalTracker.h"
 #include "../../DeviceAgnostic/ITMPixelUtils.h"
 #include "ITMCUDAUtils.h"
