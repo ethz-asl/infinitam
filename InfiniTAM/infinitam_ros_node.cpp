@@ -1,7 +1,6 @@
 // Copyright 2014-2015 Isis Innovation Limited and the authors of InfiniTAM
 
 #include <glog/logging.h>
-#include <math.h>
 #include <cstdlib>
 #include <string>
 
@@ -16,26 +15,23 @@
 #include "Engine/RosPoseSourceEngine.h"
 #include "Engine/UIEngine.h"
 
-// ROS
+//  ROS
+#include <geometric_shapes/shapes.h>
 #include <ros/ros.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/point_cloud2_iterator.h>
 #include <shape_msgs/Mesh.h>
-#include <geometric_shapes/shapes.h>
-
 #include <std_srvs/Empty.h>
 #include <std_srvs/SetBool.h>
 
-// TEST
-#include <visualization_msgs/Marker.h>
+//  TEST
+#include <pcl/PolygonMesh.h>
+#include <pcl_conversions/pcl_conversions.h>
 #include <pcl_msgs/PolygonMesh.h>
 #include <shape_msgs/Mesh.h>
 #include <visualization_msgs/Marker.h>
-
-#include <pcl/PolygonMesh.h>
-
-#include <pcl_conversions/pcl_conversions.h>
-#include <sensor_msgs/point_cloud2_iterator.h>
+#include <visualization_msgs/Marker.h>
 
 using namespace InfiniTAM::Engine;
 
@@ -64,11 +60,13 @@ class InfinitamNode {
   bool publishMap(std_srvs::Empty::Request& request,
                   std_srvs::Empty::Response& response);
 
-  void extractMeshToPcl(pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_pcl);
+  void extractMeshToPclCloud(
+      pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_pcl);
 
   void extractMeshToRosMesh(shape_msgs::Mesh::Ptr ros_mesh);
 
   bool meshToShapeMsg(const pcl::PolygonMesh& in, shape_msgs::Mesh& mesh);
+
  private:
   ros::NodeHandle node_handle_;
 
@@ -101,8 +99,9 @@ class InfinitamNode {
 
   ros::ServiceServer publish_mesh_service_;
 
-  //! ROS publisher to send out the complete cloud as ROS point cloud.
+  //! ROS publisher to send out the complete cloud.
   ros::Publisher complete_point_cloud_pub_;
+
   //! ROS topic name where the generated complete cloud is published.
   std::string complete_cloud_topic_;
 
@@ -112,14 +111,13 @@ class InfinitamNode {
   std::string complete_mesh_topic_;
 
   //! ROS Mesh of the map.
-  shape_msgs::Mesh ros_scene_mesh_;
+  shape_msgs::Mesh::Ptr ros_scene_mesh_ptr_;
 
-  pcl::PolygonMesh::Ptr mesh_ptr;  //(new pcl::PolygonMesh);
-
+  //! PCL Mesh of the map
+  pcl::PolygonMesh::Ptr mesh_ptr_;
 };
 
-InfinitamNode::InfinitamNode(int& argc, char** argv)
-    : node_handle_("~") {
+InfinitamNode::InfinitamNode(int& argc, char** argv) : node_handle_("~") {
   this->argc = argc;
   this->argv = argv;
 
@@ -138,22 +136,23 @@ InfinitamNode::InfinitamNode(int& argc, char** argv)
   complete_point_cloud_pub_ = node_handle_.advertise<sensor_msgs::PointCloud2>(
       complete_cloud_topic_, 1);
 
-  complete_mesh_pub_ = node_handle_.advertise<shape_msgs::Mesh>(
-      complete_mesh_topic_, 1);
+  complete_mesh_pub_ =
+      node_handle_.advertise<shape_msgs::Mesh>(complete_mesh_topic_, 1);
 
-  mesh_ptr.reset(new pcl::PolygonMesh);
+  mesh_ptr_.reset(new pcl::PolygonMesh);
 }
 
 InfinitamNode::~InfinitamNode() {
   delete main_engine_;
   delete internal_settings_;
   delete image_source_;
-  if (imu_source_ != NULL)
-    delete imu_source_;
+  if (imu_source_ != NULL) delete imu_source_;
 }
 
 bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
                                    std_srvs::SetBool::Response& response) {
+  LOG(INFO) << "startInfinitam start!";
+
   // turn on infinitam
   if (request.data) {
     int arg = 1;
@@ -196,7 +195,7 @@ bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
           argv[0], argv[0], argv[0]);
     }
 
-    printf("initialising ...\n");
+    LOG(INFO) << "initialising ...";
 
     SetUpSources();
 
@@ -232,66 +231,69 @@ bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
   // TODO(gocarlos): when the service is called, it does not return true until
   // infinitam is stopped.
   // find a solution.
-  response.success = true;
   return true;
 }
 
 bool InfinitamNode::publishMap(std_srvs::Empty::Request& request,
                                std_srvs::Empty::Response& response) {
+  LOG(INFO) << "publishMap";
 
+  // Make the mesh ready for reading.
   main_engine_->GetMeshingEngine()->MeshScene(main_engine_->GetMesh(),
                                               main_engine_->GetScene());
-  //////////////////////////////////////////////////////////
-//  std::string filename = "../output_" + std::to_string(ros::Time::now().toSec())
-//      + ".stl";
-//  main_engine_->GetMesh()->WriteSTL(filename.c_str());
-//  std::string filename2 = "../output_"
-//      + std::to_string(ros::Time::now().toSec()) + ".obj";
-//  main_engine_->GetMesh()->WriteOBJ(filename2.c_str());
-  //////////////////////////////////////////////////////////
 
-  ORUtils::MemoryBlock<ITMMesh::Triangle> *cpu_triangles;
-  bool shoulDelete = false;
+  // write a STL or OBJ File to the file system.
+  //  std::string filename = "../output_" +
+  //  std::to_string(ros::Time::now().toSec())
+  //      + ".stl";
+  //  main_engine_->GetMesh()->WriteSTL(filename.c_str());
+  //  std::string filename2 = "../output_"
+  //      + std::to_string(ros::Time::now().toSec()) + ".obj";
+  //  main_engine_->GetMesh()->WriteOBJ(filename2.c_str());
+
+  // Get triangles from the device's memory.
+  ORUtils::MemoryBlock<ITMMesh::Triangle>* cpu_triangles;
+  bool rm_triangle_from_cuda_memory = false;
   if (main_engine_->GetMesh()->memoryType == MEMORYDEVICE_CUDA) {
     cpu_triangles = new ORUtils::MemoryBlock<ITMMesh::Triangle>(
         main_engine_->GetMesh()->noMaxTriangles, MEMORYDEVICE_CPU);
     cpu_triangles->SetFrom(
         main_engine_->GetMesh()->triangles,
         ORUtils::MemoryBlock<ITMMesh::Triangle>::CUDA_TO_CPU);
-    shoulDelete = true;
+    rm_triangle_from_cuda_memory = true;
   } else {
     cpu_triangles = main_engine_->GetMesh()->triangles;
   }
 
-  ITMMesh::Triangle *triangleArray = cpu_triangles->GetData(MEMORYDEVICE_CPU);
-
-  LOG(INFO)<< "main_engine_->GetMesh(): " << main_engine_->GetMesh() << " \n";
-  LOG(INFO)<< "triangleArray:  " << triangleArray << " \n";
-  LOG(INFO)<< "cpu_triangles:  " << cpu_triangles << " \n";
+  // Read the memory and store it in a pointer.
+  ITMMesh::Triangle* triangleArray = cpu_triangles->GetData(MEMORYDEVICE_CPU);
 
   std::size_t nr_triangles = 0;
+  std::size_t nr_points = 0;
   nr_triangles = main_engine_->GetMesh()->noTotalTriangles;
-//  for (uint i = 0; i < nr_point; i++) {
-//    printf("v %f %f %f\n", triangleArray[i].p0.x, triangleArray[i].p0.y,
-//            triangleArray[i].p0.z);
-//    printf("v %f %f %f\n", triangleArray[i].p1.x, triangleArray[i].p1.y,
-//            triangleArray[i].p1.z);
-//    printf("v %f %f %f\n", triangleArray[i].p2.x, triangleArray[i].p2.y,
-//            triangleArray[i].p2.z);
-//  }
-//
-//  for (uint i = 0; i < nr_point; i++) {
-//    printf("f %d %d %d\n", i * 3 + 2 + 1, i * 3 + 1 + 1, i * 3 + 0 + 1);
-//  }
+  nr_points = nr_triangles * 3;
+  LOG(INFO) << "nr_triangles:  " << nr_triangles;
+  LOG(INFO) << "nr_points:  " << nr_points;
 
-  LOG(INFO)<< "nr_triangles:  " << nr_triangles << " \n";
+  for (uint i = 0; i < nr_triangles; i++) {
+    LOG(INFO) << "v: " << triangleArray[i].p0.x << " " << triangleArray[i].p0.y
+              << " " << triangleArray[i].p0.z;
+    LOG(INFO) << "v: " << triangleArray[i].p1.x << " " << triangleArray[i].p1.y
+              << " " << triangleArray[i].p1.z;
+    LOG(INFO) << "v: " << triangleArray[i].p2.x << " " << triangleArray[i].p2.y
+              << " " << triangleArray[i].p2.z;
+  }
+
+  for (uint i = 0; i < nr_triangles; i++) {
+    LOG(INFO) << "f: " << i * 3 + 2 + 1 << " " << i * 3 + 1 + 1 << " "
+              << i * 3 + 0 + 1;
+  }
 
   // Build the point cloud.
   pcl::PCLPointCloud2::Ptr cloud_ptr(new pcl::PCLPointCloud2);
-  cloud_ptr->width = cloud_ptr->height = cloud_ptr->point_step = cloud_ptr
-      ->row_step = 0;
+  cloud_ptr->width = cloud_ptr->height = cloud_ptr->point_step =
+      cloud_ptr->row_step = 0;
   cloud_ptr->data.clear();
-  LOG(INFO)<< "cloud_ptr:  " << cloud_ptr << " \n";
 
   int field_offset = 0;
   for (int i = 0; i < 3; ++i, field_offset += 4) {
@@ -306,263 +308,267 @@ bool InfinitamNode::publishMap(std_srvs::Empty::Request& request,
   cloud_ptr->fields[2].name = "z";
 
   cloud_ptr->point_step = field_offset;
-  cloud_ptr->width = nr_triangles;
+  cloud_ptr->width = nr_points;
   cloud_ptr->height = 1;
   cloud_ptr->row_step = cloud_ptr->point_step * cloud_ptr->width;
   cloud_ptr->is_dense = true;
-  cloud_ptr->data.resize(cloud_ptr->point_step * nr_triangles*5);
+  cloud_ptr->data.resize(cloud_ptr->point_step * nr_points);
+
   LOG(INFO) << "cloud_ptr->data.size: " << cloud_ptr->data.size() << " \n";
-  LOG(INFO) << "cloud created:  " << " \n";
+  LOG(INFO) << "cloud created:  "
+            << " \n";
 
-  mesh_ptr->cloud = *cloud_ptr;
-  mesh_ptr->polygons.reserve(nr_triangles);
+  mesh_ptr_->cloud = *cloud_ptr;
+  mesh_ptr_->polygons.reserve(nr_triangles);
 
-// write vertices
-  long v_idx = 0;
+  // write vertices
+  std::size_t v_idx = 0;
 
   pcl::Vertices::Ptr face_vertices(new pcl::Vertices);
   face_vertices->vertices.reserve(3);
   std::size_t v = 0;
-  LOG(INFO)<< "going to fill the mesh with points. \n";
-  LOG(INFO)<< "face_vertices:  " << face_vertices << " \n";
+  LOG(INFO) << "going to fill the mesh with points. \n";
+  LOG(INFO) << "face_vertices:  " << face_vertices << " \n";
 
   for (uint i = 0; i < nr_triangles; ++i) {
-
     for (size_t f = 0; f < 3; ++f) {
       float value = triangleArray[i].p0[f];
-      memcpy(
-          &mesh_ptr->cloud.data[v_idx * mesh_ptr->cloud.point_step
-              + mesh_ptr->cloud.fields[f].offset],
-          &value, sizeof(float));
+      memcpy(&mesh_ptr_->cloud.data[v_idx * mesh_ptr_->cloud.point_step +
+                                    mesh_ptr_->cloud.fields[f].offset],
+             &value, sizeof(float));
       ++v_idx;
     }  // for one point
 
     for (size_t f = 0; f < 3; ++f) {
       float value = triangleArray[i].p1[f];
-      memcpy(
-          &mesh_ptr->cloud.data[v_idx * mesh_ptr->cloud.point_step
-              + mesh_ptr->cloud.fields[f].offset],
-          &value, sizeof(float));
+      memcpy(&mesh_ptr_->cloud.data[v_idx * mesh_ptr_->cloud.point_step +
+                                    mesh_ptr_->cloud.fields[f].offset],
+             &value, sizeof(float));
       ++v_idx;
     }
 
     for (size_t f = 0; f < 3; ++f) {
       float value = triangleArray[i].p2[f];
-      memcpy(
-          &mesh_ptr->cloud.data[v_idx * mesh_ptr->cloud.point_step
-              + mesh_ptr->cloud.fields[f].offset],
-          &value, sizeof(float));
+      memcpy(&mesh_ptr_->cloud.data[v_idx * mesh_ptr_->cloud.point_step +
+                                    mesh_ptr_->cloud.fields[f].offset],
+             &value, sizeof(float));
       ++v_idx;
     }
 
-    LOG(INFO)<< "v_idx * mesh_ptr->cloud.point_step + mesh_ptr->cloud.fields[2].offset: "
-    << v_idx * mesh_ptr->cloud.point_step + mesh_ptr->cloud.fields[2].offset<<" but size is"<<mesh_ptr->cloud.data.size() ;
+    LOG(INFO) << "v_idx * mesh_ptr->cloud.point_step + "
+                 "mesh_ptr->cloud.fields[2].offset: "
+              << v_idx * mesh_ptr_->cloud.point_step +
+                     mesh_ptr_->cloud.fields[2].offset
+              << " but size is " << mesh_ptr_->cloud.data.size();
 
   }  // for one one triangle
 
-  std::cout << "cloud filled: header: " << mesh_ptr->cloud.header
-            << " \nheight: " << mesh_ptr->cloud.height << "\nwidth: "
-            << mesh_ptr->cloud.width << "\nfields.size()"
-            << mesh_ptr->cloud.fields.size() << "\n";
+  LOG(INFO) << "cloud filled: header: " << mesh_ptr_->cloud.header
+            << " \nheight: " << mesh_ptr_->cloud.height
+            << "\nwidth: " << mesh_ptr_->cloud.width << "\nfields.size()"
+            << mesh_ptr_->cloud.fields.size() << "\n";
 
-  std::cout << "going to fill the mesh with vertices. \n";
-
-//   write faces
+  //   write faces
   for (uint i = 0; i < nr_triangles; i++) {
     std::cout << " --write faces. ";
     v = i * 3 + 2;
     face_vertices->vertices[0] = v;
-//    face_vertices.vertices.push_back(v);
+    //    face_vertices.vertices.push_back(v);
 
     v = i * 3 + 1;
     face_vertices->vertices[1] = v;
-//    face_vertices.vertices.push_back(v);
+    //    face_vertices.vertices.push_back(v);
 
     v = i * 3 + 0;
     face_vertices->vertices[2] = v;
-//    face_vertices.vertices.push_back(v);
+    //    face_vertices.vertices.push_back(v);
 
-
-    mesh_ptr->polygons.push_back(*face_vertices);
+    mesh_ptr_->polygons.push_back(*face_vertices);
 
     std::cout << "write faces end: " << i << " and "
-              << mesh_ptr->polygons.size() << " polygons.\n";
-//    face_vertices.vertices.clear();
-
+              << mesh_ptr_->polygons.size() << " polygons.\n";
+    //    face_vertices.vertices.clear();
   }
 
-//  std::cout << "Loaded a PolygonMesh with "
-//            << mesh.cloud.width * mesh.cloud.height << " points and"
-//            << mesh.polygons.size() << " polygons.\n";
+  LOG(INFO) << "Loaded a PolygonMesh with "
+            << mesh_ptr_->cloud.width * mesh_ptr_->cloud.height << " points and"
+            << mesh_ptr_->polygons.size() << " polygons.\n";
 
-//
-//  /////////////////////////////////////////////
-////  // Publish point cloud.
-////  pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_pcl(
-////      new pcl::PointCloud<pcl::PointXYZ>);
-////
-////  extractMeshToPcl(point_cloud_pcl);
-////  ROS_INFO("got point cloud");
-////
-////  sensor_msgs::PointCloud2 point_cloud_msg;
-////  pcl::toROSMsg(*point_cloud_pcl, point_cloud_msg);
-////  point_cloud_msg.header.frame_id = camera_frame_id_;
-////  point_cloud_msg.header.stamp = ros::Time::now();
-////
-////  complete_point_cloud_pub_.publish(point_cloud_msg);
-////
-////  // Publish ROS mesh
-////  shape_msgs::Mesh::Ptr ros_mesh(new shape_msgs::Mesh);
-////  extractMeshToRosMesh(ros_mesh);
-////  ROS_INFO("got ros mesh");
-////
-////  complete_mesh_pub_.publish(ros_mesh);
+  /////////////////////////////////////////////
+  //  // Publish point cloud.
+  //  pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_pcl(
+  //      new pcl::PointCloud<pcl::PointXYZ>);
+  //
+  //  extractMeshToPcl(point_cloud_pcl);
+  //  ROS_INFO("got point cloud");
+  //
+  //  sensor_msgs::PointCloud2 point_cloud_msg;
+  //  pcl::toROSMsg(*point_cloud_pcl, point_cloud_msg);
+  //  point_cloud_msg.header.frame_id = camera_frame_id_;
+  //  point_cloud_msg.header.stamp = ros::Time::now();
+  //
+  //  complete_point_cloud_pub_.publish(point_cloud_msg);
+  //
+  //  // Publish ROS mesh
+  //  shape_msgs::Mesh::Ptr ros_mesh(new shape_msgs::Mesh);
+  //  extractMeshToRosMesh(ros_mesh);
+  //  ROS_INFO("got ros mesh");
+  //  sensor_msgs::PointCloud2 point_cloud_msg;
+  //  pcl::toROSMsg(*point_cloud_pcl, point_cloud_msg);
+  //  point_cloud_msg.header.frame_id = camera_frame_id_;
+  //  point_cloud_msg.header.stamp = ros::Time::now();
+  //  complete_point_cloud_pub_.publish(point_cloud_msg);
 
-  // Publish ROS mesh
-//  meshToShapeMsg(mesh, ros_scene_mesh_);
-//  ROS_INFO("got ros mesh");
+  //  complete_mesh_pub_.publish(ros_mesh);
 
-//  complete_mesh_pub_.publish(ros_scene_mesh_);
+  //   Publish ROS mesh
+  meshToShapeMsg(*mesh_ptr_, *ros_scene_mesh_ptr_);
+  ROS_INFO("got ros mesh");
 
-//  std::cout << "Loaded a PolygonMesh with "
-//            << mesh.cloud.width * mesh.cloud.height << " points and"
-//            << mesh.polygons.size() << " polygons.\n";
+  complete_mesh_pub_.publish(ros_scene_mesh_ptr_);
 
-//  if (shoulDelete) {
-//    delete cpu_triangles;
-//  }
-//
-//  delete triangleArray;
-  LOG(INFO)<<"asdöflkajsödfjk";
+  LOG(INFO) << "Loaded a PolygonMesh with "
+            << mesh_ptr_->cloud.width * mesh_ptr_->cloud.height << " points and"
+            << mesh_ptr_->polygons.size() << " polygons.\n";
+
+  if (rm_triangle_from_cuda_memory) {
+    delete cpu_triangles;
+  }
+
+  LOG(INFO) << "publishMap end!";
   return true;
 }
 
-void InfinitamNode::extractMeshToPcl(
+// NOT IN USAGE
+void InfinitamNode::extractMeshToPclCloud(
     pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_pcl) {
-  CHECK_NOTNULL(main_engine_);
-  CHECK_NOTNULL(&point_cloud_pcl);
-  LOG(INFO)<<"extractMeshToPcl";
-
-  main_engine_->GetMeshingEngine()->MeshScene(main_engine_->GetMesh(),
-                                              main_engine_->GetScene());
-  ROS_INFO("got infinitam mesh successfully");
-  ORUtils::MemoryBlock<ITMMesh::Triangle>* cpu_triangles;
-  bool rm_triangle_in_cuda_memory = false;
-
-  if (main_engine_->GetMesh()->memoryType == MEMORYDEVICE_CUDA) {
-    cpu_triangles = new ORUtils::MemoryBlock<ITMMesh::Triangle>(
-        main_engine_->GetMesh()->noMaxTriangles, MEMORYDEVICE_CPU);
-    cpu_triangles->SetFrom(
-        main_engine_->GetMesh()->triangles,
-        ORUtils::MemoryBlock<ITMMesh::Triangle>::CUDA_TO_CPU);
-    rm_triangle_in_cuda_memory = true;
-  } else {
-    cpu_triangles = main_engine_->GetMesh()->triangles;
-  }
-
-  ITMMesh::Triangle* triangleArray = cpu_triangles->GetData(MEMORYDEVICE_CPU);
-
-  // Here the point cloud copies the mesh point to the pcl point cloud.
-  // That means that the pcl point cloud has some duplicate points.
-  point_cloud_pcl->width = main_engine_->GetMesh()->noTotalTriangles * 3;
-  point_cloud_pcl->height = 1;
-  point_cloud_pcl->is_dense = false;
-  point_cloud_pcl->points.resize(
-      point_cloud_pcl->width * point_cloud_pcl->height);
-
-  ROS_ERROR_COND(main_engine_->GetMesh()->noTotalTriangles < 1,
-                 "The mesh has too few triangles, only: %d",
-                 main_engine_->GetMesh()->noTotalTriangles);
-
-  long point_number = 0;
-  // All vertices of the mesh are stored in the pcl point cloud.
-  for (int64 i = 0; i < main_engine_->GetMesh()->noTotalTriangles; ++i) {
-    point_cloud_pcl->points[point_number].x = triangleArray[i].p0.x;
-    point_cloud_pcl->points[point_number].y = triangleArray[i].p0.y;
-    point_cloud_pcl->points[point_number].z = triangleArray[i].p0.z;
-    point_number++;
-    point_cloud_pcl->points[point_number].x = triangleArray[i].p1.x;
-    point_cloud_pcl->points[point_number].y = triangleArray[i].p1.y;
-    point_cloud_pcl->points[point_number].z = triangleArray[i].p1.z;
-    point_number++;
-    point_cloud_pcl->points[point_number].x = triangleArray[i].p2.x;
-    point_cloud_pcl->points[point_number].y = triangleArray[i].p2.y;
-    point_cloud_pcl->points[point_number].z = triangleArray[i].p2.z;
-    point_number++;
-  }
-  ROS_INFO("got out_cloud");
-
-  if (rm_triangle_in_cuda_memory) {
-    delete cpu_triangles;
-  }
+  //  CHECK_NOTNULL(main_engine_);
+  //  CHECK_NOTNULL(&point_cloud_pcl);
+  //  LOG(INFO) << "extractMeshToPcl";
+  //
+  //  main_engine_->GetMeshingEngine()->MeshScene(main_engine_->GetMesh(),
+  //                                              main_engine_->GetScene());
+  //  ROS_INFO("got mesh successfully");
+  //  ORUtils::MemoryBlock<ITMMesh::Triangle>* cpu_triangles;
+  //  bool rm_triangle_in_cuda_memory = false;
+  //
+  //  if (main_engine_->GetMesh()->memoryType == MEMORYDEVICE_CUDA) {
+  //    cpu_triangles = new ORUtils::MemoryBlock<ITMMesh::Triangle>(
+  //        main_engine_->GetMesh()->noMaxTriangles, MEMORYDEVICE_CPU);
+  //    cpu_triangles->SetFrom(
+  //        main_engine_->GetMesh()->triangles,
+  //        ORUtils::MemoryBlock<ITMMesh::Triangle>::CUDA_TO_CPU);
+  //    rm_triangle_in_cuda_memory = true;
+  //  } else {
+  //    cpu_triangles = main_engine_->GetMesh()->triangles;
+  //  }
+  //
+  //  ITMMesh::Triangle* triangleArray =
+  //  cpu_triangles->GetData(MEMORYDEVICE_CPU);
+  //
+  //  // Point cloud has at least 3 points per triangle.
+  //  point_cloud_pcl->width = main_engine_->GetMesh()->noTotalTriangles * 3;
+  //  point_cloud_pcl->height = 1;
+  //  point_cloud_pcl->is_dense = false;
+  //  point_cloud_pcl->points.resize(point_cloud_pcl->width *
+  //                                 point_cloud_pcl->height);
+  //
+  //  ROS_ERROR_COND(main_engine_->GetMesh()->noTotalTriangles < 1,
+  //                 "The mesh has too few triangles, only: %d",
+  //                 main_engine_->GetMesh()->noTotalTriangles);
+  //
+  //  std::size_t point_number = 0;
+  //  // All vertices of the mesh are stored in the pcl point cloud.
+  //  for (int64 i = 0; i < main_engine_->GetMesh()->noTotalTriangles * 3;
+  //       i = i + 3) {
+  //    point_cloud_pcl->points[i].x = triangleArray[i].p0.x;
+  //    point_cloud_pcl->points[i].y = triangleArray[i].p0.y;
+  //    point_cloud_pcl->points[i].z = triangleArray[i].p0.z;
+  //
+  //    point_cloud_pcl->points[i + 1].x = triangleArray[i].p1.x;
+  //    point_cloud_pcl->points[i + 1].y = triangleArray[i].p1.y;
+  //    point_cloud_pcl->points[i + 1].z = triangleArray[i].p1.z;
+  //
+  //    point_cloud_pcl->points[i + 2].x = triangleArray[i].p2.x;
+  //    point_cloud_pcl->points[i + 2].y = triangleArray[i].p2.y;
+  //    point_cloud_pcl->points[i + 2].z = triangleArray[i].p2.z;
+  //  }
+  //  ROS_INFO("got out_cloud");
+  //
+  //  if (rm_triangle_in_cuda_memory) {
+  //    delete cpu_triangles;
+  //  }
 }
 
+// NOT IN USAGE
 void InfinitamNode::extractMeshToRosMesh(shape_msgs::Mesh::Ptr ros_mesh) {
-  CHECK_NOTNULL(main_engine_);
-  CHECK_NOTNULL(&ros_mesh);
-  ROS_INFO("extractMeshToRosMesh");
-
-  main_engine_->GetMeshingEngine()->MeshScene(main_engine_->GetMesh(),
-                                              main_engine_->GetScene());
-  ROS_INFO("got infinitam mesh successfully");
-  ORUtils::MemoryBlock<ITMMesh::Triangle>* cpu_triangles;
-  bool rm_triangle_in_cuda_memory = false;
-
-  if (main_engine_->GetMesh()->memoryType == MEMORYDEVICE_CUDA) {
-    cpu_triangles = new ORUtils::MemoryBlock<ITMMesh::Triangle>(
-        main_engine_->GetMesh()->noMaxTriangles, MEMORYDEVICE_CPU);
-    cpu_triangles->SetFrom(
-        main_engine_->GetMesh()->triangles,
-        ORUtils::MemoryBlock<ITMMesh::Triangle>::CUDA_TO_CPU);
-    rm_triangle_in_cuda_memory = true;
-  } else {
-    cpu_triangles = main_engine_->GetMesh()->triangles;
-  }
-
-  ITMMesh::Triangle* triangleArray = cpu_triangles->GetData(MEMORYDEVICE_CPU);
-//  ROS_INFO("asdf");
-
-  ROS_ERROR_COND(main_engine_->GetMesh()->noTotalTriangles < 1,
-                 "The mesh has too few triangles, only: %d",
-                 main_engine_->GetMesh()->noTotalTriangles);
-
-  shape_msgs::MeshTriangle ros_triangle;
-  geometry_msgs::Point vertices;
-  //  ROS_INFO("asdf");
-
-  long index = 0;
-  // All vertices of the infinitam mesh are stored in a ROS Mesh.
-  for (long i = 0; i < main_engine_->GetMesh()->noTotalTriangles; ++i) {
-//    ROS_INFO_STREAM("asdf" << i);
-
-    vertices.x = triangleArray[i].p0.x;
-    vertices.y = triangleArray[i].p0.y;
-    vertices.z = triangleArray[i].p0.z;
-    ros_mesh->vertices.push_back(vertices);
-    ros_triangle.vertex_indices[0] = index++;
-
-    vertices.x = triangleArray[i].p1.x;
-    vertices.y = triangleArray[i].p1.y;
-    vertices.z = triangleArray[i].p1.z;
-    ros_mesh->vertices.push_back(vertices);
-    ros_triangle.vertex_indices[1] = index++;
-
-    vertices.x = triangleArray[i].p2.x;
-    vertices.y = triangleArray[i].p2.y;
-    vertices.z = triangleArray[i].p2.z;
-    ros_mesh->vertices.push_back(vertices);
-    ros_triangle.vertex_indices[2] = index++;
-
-    ros_mesh->triangles.push_back(ros_triangle);
-  }
-  ROS_INFO_STREAM(
-      "ROS mesh has " << ros_mesh->triangles.size() << " triangles, " << "and " << ros_mesh->vertices.size() << " vertices.");
-  //  ros_mesh->mergeVertices(0.05);
-  //  ROS_INFO("got ros mesh");
-
-  if (rm_triangle_in_cuda_memory) {
-    delete cpu_triangles;
-  }
+  //  CHECK_NOTNULL(main_engine_);
+  //  CHECK_NOTNULL(&ros_mesh);
+  //  ROS_INFO("extractMeshToRosMesh");
+  //
+  //  main_engine_->GetMeshingEngine()->MeshScene(main_engine_->GetMesh(),
+  //                                              main_engine_->GetScene());
+  //  ROS_INFO("got infinitam mesh successfully");
+  //  ORUtils::MemoryBlock<ITMMesh::Triangle>* cpu_triangles;
+  //  bool rm_triangle_in_cuda_memory = false;
+  //
+  //  if (main_engine_->GetMesh()->memoryType == MEMORYDEVICE_CUDA) {
+  //    cpu_triangles = new ORUtils::MemoryBlock<ITMMesh::Triangle>(
+  //        main_engine_->GetMesh()->noMaxTriangles, MEMORYDEVICE_CPU);
+  //    cpu_triangles->SetFrom(
+  //        main_engine_->GetMesh()->triangles,
+  //        ORUtils::MemoryBlock<ITMMesh::Triangle>::CUDA_TO_CPU);
+  //    rm_triangle_in_cuda_memory = true;
+  //  } else {
+  //    cpu_triangles = main_engine_->GetMesh()->triangles;
+  //  }
+  //
+  //  ITMMesh::Triangle* triangleArray =
+  //  cpu_triangles->GetData(MEMORYDEVICE_CPU);
+  //  //  ROS_INFO("asdf");
+  //
+  //  ROS_ERROR_COND(main_engine_->GetMesh()->noTotalTriangles < 1,
+  //                 "The mesh has too few triangles, only: %d",
+  //                 main_engine_->GetMesh()->noTotalTriangles);
+  //
+  //  shape_msgs::MeshTriangle ros_triangle;
+  //  geometry_msgs::Point vertices;
+  //  //  ROS_INFO("asdf");
+  //
+  //  std::size_t index = 0;
+  //  // All vertices of the infinitam mesh are stored in a ROS Mesh.
+  //  for (std::size_t i = 0; i < main_engine_->GetMesh()->noTotalTriangles;
+  //  ++i) {
+  //    //    ROS_INFO_STREAM("asdf" << i);
+  //
+  //    vertices.x = triangleArray[i].p0.x;
+  //    vertices.y = triangleArray[i].p0.y;
+  //    vertices.z = triangleArray[i].p0.z;
+  //    ros_mesh->vertices.push_back(vertices);
+  //    ros_triangle.vertex_indices[0] = index++;
+  //
+  //    vertices.x = triangleArray[i].p1.x;
+  //    vertices.y = triangleArray[i].p1.y;
+  //    vertices.z = triangleArray[i].p1.z;
+  //    ros_mesh->vertices.push_back(vertices);
+  //    ros_triangle.vertex_indices[1] = index++;
+  //
+  //    vertices.x = triangleArray[i].p2.x;
+  //    vertices.y = triangleArray[i].p2.y;
+  //    vertices.z = triangleArray[i].p2.z;
+  //    ros_mesh->vertices.push_back(vertices);
+  //    ros_triangle.vertex_indices[2] = index++;
+  //
+  //    ros_mesh->triangles.push_back(ros_triangle);
+  //  }
+  //  ROS_INFO_STREAM("ROS mesh has "
+  //                  << ros_mesh->triangles.size() << " triangles, "
+  //                  << "and " << ros_mesh->vertices.size() << " vertices.");
+  //  //  ROS_INFO("got ros mesh");
+  //
+  //  if (rm_triangle_in_cuda_memory) {
+  //    delete cpu_triangles;
+  //  }
 }
 
 bool InfinitamNode::meshToShapeMsg(const pcl::PolygonMesh& in,
@@ -577,8 +583,8 @@ bool InfinitamNode::meshToShapeMsg(const pcl::PolygonMesh& in,
 
   mesh.vertices.resize(size);
 
-  LOG(INFO) << "polys: " << pcl_msg_mesh.polygons.size() << " vertices: "
-            << pcd_modifier.size() << "\n";
+  LOG(INFO) << "polys: " << pcl_msg_mesh.polygons.size()
+            << " vertices: " << pcd_modifier.size() << "\n";
 
   sensor_msgs::PointCloud2ConstIterator<float> pt_iter(pcl_msg_mesh.cloud, "x");
 
@@ -588,15 +594,14 @@ bool InfinitamNode::meshToShapeMsg(const pcl::PolygonMesh& in,
     mesh.vertices[i].z = pt_iter[2];
   }
 
-//   ROS_INFO("Found %ld polygons", triangles.size());
-
-  LOG(INFO) << "Updated vertices" << "\n";
+  LOG(INFO) << "Updated vertices"
+            << "\n";
 
   mesh.triangles.resize(in.polygons.size());
 
   for (size_t i = 0; i < in.polygons.size(); ++i) {
     if (in.polygons[i].vertices.size() < 3) {
-      LOG(WARNING)<<"Not enough points in polygon. Ignoring it.";
+      LOG(WARNING) << "Not enough points in polygon. Ignoring it.";
       continue;
     }
 
@@ -614,17 +619,15 @@ void InfinitamNode::readParameters() {
   node_handle_.param<std::string>("depth_image_topic", depth_image_topic,
                                   "/camera/depth/image_raw");
   node_handle_.param<std::string>("complete_cloud", complete_cloud_topic_,
-                                  "/complete_cloud");
-  node_handle_.param<std::string>("complete_mesh", complete_mesh_topic_,
-                                  "/complete_mesh");
-
+                                  "/scene_point_cloud");
+  node_handle_.param<std::string>("complete_scene", complete_mesh_topic_,
+                                  "/scene_mesh");
   // InfiniTAM settings
   node_handle_.param<float>("viewFrustum_min",
                             internal_settings_->sceneParams.viewFrustum_min,
                             0.35f);
-  node_handle_.param<float>("viewFrustum_max",
-                            internal_settings_->sceneParams.viewFrustum_max,
-                            3.0f);
+  node_handle_.param<float>(
+      "viewFrustum_max", internal_settings_->sceneParams.viewFrustum_max, 3.0f);
 
   node_handle_.param<std::string>("camera_frame_id", camera_frame_id_,
                                   "sr300_depth_optical_frame");
@@ -645,26 +648,23 @@ void InfinitamNode::SetUpSources() {
     printf("using rgb images: %s\nusing depth images: %s\n",
            depth_image_filename, rgb_image_filename);
     if (filename_imu == NULL) {
-      image_source_ = new ImageFileReader(calibration_filename,
-                                          depth_image_filename,
-                                          rgb_image_filename);
+      image_source_ = new ImageFileReader(
+          calibration_filename, depth_image_filename, rgb_image_filename);
     } else {
       printf("using imu data: %s\n", filename_imu);
-      image_source_ = new RawFileReader(calibration_filename,
-                                        depth_image_filename,
-                                        rgb_image_filename, Vector2i(320, 240),
-                                        0.5f);
+      image_source_ =
+          new RawFileReader(calibration_filename, depth_image_filename,
+                            rgb_image_filename, Vector2i(320, 240), 0.5f);
       imu_source_ = new IMUSourceEngine(filename_imu);
     }
   }
 
   if (image_source_ == NULL) {
-    printf(
-        "trying OpenNI device: %s\n",
-        (depth_image_filename == NULL) ?
-            "<OpenNI default device>" : depth_image_filename);
-    image_source_ = new OpenNIEngine(calibration_filename,
-                                     depth_image_filename);
+    printf("trying OpenNI device: %s\n", (depth_image_filename == NULL)
+                                             ? "<OpenNI default device>"
+                                             : depth_image_filename);
+    image_source_ =
+        new OpenNIEngine(calibration_filename, depth_image_filename);
     if (image_source_->getDepthImageSize().x == 0) {
       delete image_source_;
       image_source_ = NULL;
@@ -691,21 +691,21 @@ void InfinitamNode::SetUpSources() {
     printf("Checking if there are suitable ROS messages being published.\n");
 
     pose_source_ = new RosPoseSourceEngine(node_handle_);
-    image_source_ = new RosImageSourceEngine(node_handle_,
-                                             calibration_filename);
+    image_source_ =
+        new RosImageSourceEngine(node_handle_, calibration_filename);
 
     // Get images from ROS topic.
     rgb_sub_ = node_handle_.subscribe(rgb_image_topic, 10,
                                       &RosImageSourceEngine::rgbCallback,
-                                      (RosImageSourceEngine*) image_source_);
+                                      (RosImageSourceEngine*)image_source_);
 
     depth_sub_ = node_handle_.subscribe(depth_image_topic, 10,
                                         &RosImageSourceEngine::depthCallback,
-                                        (RosImageSourceEngine*) image_source_);
+                                        (RosImageSourceEngine*)image_source_);
 
-    tf_sub_ = node_handle_.subscribe("/tf", 10,
-                                     &RosPoseSourceEngine::TFCallback,
-                                     (RosPoseSourceEngine*) pose_source_);
+    tf_sub_ =
+        node_handle_.subscribe("/tf", 10, &RosPoseSourceEngine::TFCallback,
+                               (RosPoseSourceEngine*)pose_source_);
 
     if (image_source_->getDepthImageSize().x == 0) {
       delete image_source_;
