@@ -1,4 +1,8 @@
-#Eclipse
+
+# Output Files
+/InfiniTAM/scenes/
+
+# Eclipse
 .cproject
 .project
 .settings
