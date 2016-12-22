@@ -1,6 +1,23 @@
 // Copyright 2014-2015 Isis Innovation Limited and the authors of InfiniTAM
 
+#include <geometric_shapes/shapes.h>
+
 #include <glog/logging.h>
+
+#include <pcl/PolygonMesh.h>
+#include <pcl/io/obj_io.h>
+#include <pcl/ros/conversions.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl_msgs/PolygonMesh.h>
+
+#include <ros/package.h>
+#include <ros/ros.h>
+#include <sensor_msgs/Image.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/point_cloud2_iterator.h>
+#include <shape_msgs/Mesh.h>
+#include <std_srvs/Empty.h>
+#include <std_srvs/SetBool.h>
 #include <cstdlib>
 #include <string>
 
@@ -14,25 +31,6 @@
 #include "Engine/RosImageSourceEngine.h"
 #include "Engine/RosPoseSourceEngine.h"
 #include "Engine/UIEngine.h"
-
-//  ROS
-#include <geometric_shapes/shapes.h>
-#include <ros/package.h>
-#include <ros/ros.h>
-#include <sensor_msgs/Image.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <sensor_msgs/point_cloud2_iterator.h>
-#include <shape_msgs/Mesh.h>
-#include <shape_msgs/Mesh.h>
-#include <std_srvs/Empty.h>
-#include <std_srvs/SetBool.h>
-
-//  PCL
-#include <pcl/PolygonMesh.h>
-#include <pcl/io/obj_io.h>
-#include <pcl/ros/conversions.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl_msgs/PolygonMesh.h>
 
 using namespace InfiniTAM::Engine;
 
@@ -312,7 +310,7 @@ bool InfinitamNode::publishMap(std_srvs::Empty::Request& request,
     const std::string filename_stl_file =
         ros::package::getPath("infinitam") + "/scenes/scene_mesh" + ".stl";
     main_engine_->GetMesh()->WriteSTL(filename_stl_file.c_str());
-    main_engine_->GetMesh()->WriteSTL(
+    main_engine_->GetMesh()->WriteOBJ(
         (ros::package::getPath("infinitam") + "/scenes/scene_mesh" + ".obj")
             .c_str());
 
@@ -356,7 +354,7 @@ void InfinitamNode::extractITMMeshToPolygonMesh(
     //    polygon_mesh_ptr->polygons[i].vertices[0] = (i * 3u + 2u + 1u);
     //    polygon_mesh_ptr->polygons[i].vertices[1] = (i * 3u + 1u + 1u);
     //    polygon_mesh_ptr->polygons[i].vertices[2] = (i * 3u + 0u + 1u);
-    // for writing to a file using the library.
+    //     for writing to a file using the library.
     polygon_mesh_ptr->polygons[i].vertices[0] = (i * 3 + 2);
     polygon_mesh_ptr->polygons[i].vertices[1] = (i * 3 + 1);
     polygon_mesh_ptr->polygons[i].vertices[2] = (i * 3 + 0);
