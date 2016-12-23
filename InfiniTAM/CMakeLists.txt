@@ -33,6 +33,9 @@ find_package(libuvc QUIET)
 CANONIFY_BOOL(libuvc_FOUND)
 message(STATUS "libuvc found: ${libuvc_FOUND}")
 
+CANONIFY_BOOL(librealsense_FOUND)
+message(STATUS "librealsense found: ${librealsense_FOUND}")
+ 
 find_package(PNG QUIET)
 CANONIFY_BOOL(PNG_FOUND)
 message(STATUS "libpng found: ${PNG_FOUND}")
@@ -72,8 +75,6 @@ IF(WITH_CUDA)
 ELSE()
   add_definitions(-DCOMPILE_WITHOUT_CUDA)
 ENDIF()
-
-
 
 find_package(OpenNI QUIET)
 CANONIFY_BOOL(OPENNI_FOUND)
