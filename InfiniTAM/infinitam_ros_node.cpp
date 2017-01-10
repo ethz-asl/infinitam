@@ -1,6 +1,6 @@
 // Copyright 2014-2015 Isis Innovation Limited and the authors of InfiniTAM
 
-#include <geometric_shapes/shapes.h>
+//#include <geometric_shapes/shapes.h>
 
 #include <glog/logging.h>
 
@@ -51,7 +51,7 @@ class InfinitamNode {
   //! Choose Image and Pose sources.
   void SetUpSources();
 
-  //! ROS Service Callback method, initialises Infinitam
+  //! ROS Service Callback method, initializes Infinitam
   bool startInfinitam(std_srvs::SetBool::Request& request,
                       std_srvs::SetBool::Response& response);
 
@@ -310,14 +310,6 @@ bool InfinitamNode::publishMap(std_srvs::Empty::Request& request,
     const std::string filename_stl_file =
         ros::package::getPath("infinitam") + "/scenes/scene_mesh" + ".stl";
     main_engine_->GetMesh()->WriteSTL(filename_stl_file.c_str());
-    main_engine_->GetMesh()->WriteOBJ(
-        (ros::package::getPath("infinitam") + "/scenes/scene_mesh" + ".obj")
-            .c_str());
-
-    //    pcl::io::saveOBJFile(
-    //        ros::package::getPath("infinitam") + "/scenes/scene_mesh" +
-    //        ".obj",
-    //        *mesh_ptr_, 6);
   }
 
   if (rm_triangle_from_cuda_memory) {
@@ -348,13 +340,6 @@ void InfinitamNode::extractITMMeshToPolygonMesh(
   for (std::size_t i = 0u; i < nr_triangles; ++i) {
     //  Write faces.
     mesh_ptr_->polygons[i].vertices.resize(3u);
-    // The vertex index starts with 1 not with 0 (OBJ-file standard).
-    // the Obj_io.h defines that the vertices start with 0, when writing a file,
-    // it just adds one to each value, so for publishing:
-    //    polygon_mesh_ptr->polygons[i].vertices[0] = (i * 3u + 2u + 1u);
-    //    polygon_mesh_ptr->polygons[i].vertices[1] = (i * 3u + 1u + 1u);
-    //    polygon_mesh_ptr->polygons[i].vertices[2] = (i * 3u + 0u + 1u);
-    //     for writing to a file using the library.
     polygon_mesh_ptr->polygons[i].vertices[0] = (i * 3 + 2);
     polygon_mesh_ptr->polygons[i].vertices[1] = (i * 3 + 1);
     polygon_mesh_ptr->polygons[i].vertices[2] = (i * 3 + 0);
