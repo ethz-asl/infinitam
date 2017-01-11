@@ -17,7 +17,6 @@ RosPoseSourceEngine::RosPoseSourceEngine(ros::NodeHandle& nh)
       first_time_tf_available_(true),
       broadcast_transformations(false) {
   set_camera_pose_ = true;
-
   // set the topic and frame_id names.
   nh.param<std::string>("camera_frame_id", camera_frame_id_,
                         "camera_depth_optical_frame");
@@ -35,8 +34,8 @@ void RosPoseSourceEngine::TFCallback(const tf::tfMessage& tf_msg) {
 
     // Get the pose of the camera from the same time stamp as the latest image.
     // Images messages have a lower frequency then pose messages.
-    latest_depth_image_stamp_.fromSec(main_engine_->getImageTimeStamp());
-
+//    latest_depth_image_stamp_.fromSec(main_engine_->getImageTimeStamp());
+    latest_depth_image_stamp_=ros::Time(0);
     // Get transform from world to camera frame.
     listener.lookupTransform(world_frame_id_, camera_frame_id_,
                              latest_depth_image_stamp_,
@@ -147,14 +146,14 @@ void RosPoseSourceEngine::TFCallback(const tf::tfMessage& tf_msg) {
       // Visualize the transformations as ROS tfs.
 
       // Broadcast the tf for origin of the map for infinitam.
-      broadcaster.sendTransform(tf::StampedTransform(
-          tf_world_to_camera_transform_at_start_, ros::Time(0),
-          "world", "tf_camera_initial"));
+      broadcaster.sendTransform(
+          tf::StampedTransform(tf_world_to_camera_transform_at_start_,
+                               ros::Time(0), "world", "tf_camera_initial"));
       // Broadcast the tf for the current pose of the camera in infinitam
       // coordinate system.
       broadcaster.sendTransform(tf::StampedTransform(
-          tf_infinitam_origin_to_camera_transform_relative_,
-          ros::Time(0), "tf_camera_initial", "infinitam_pose"));
+          tf_infinitam_origin_to_camera_transform_relative_, ros::Time(0),
+          "tf_camera_initial", "infinitam_pose"));
     }
 
     if (set_camera_pose_) {

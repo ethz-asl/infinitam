@@ -69,6 +69,7 @@ RosImageSourceEngine::~RosImageSourceEngine() {}
 
 void RosImageSourceEngine::rgbCallback(
     const sensor_msgs::Image::ConstPtr& msg) {
+  ROS_INFO_ONCE("Got rgb raw image.");
   if (!rgb_ready_ && data_available_) {
     std::lock_guard<std::mutex> guard(rgb_mutex_);
     rgb_ready_ = true;
@@ -80,36 +81,43 @@ void RosImageSourceEngine::rgbCallback(
 
 void RosImageSourceEngine::depthCallback(
     const sensor_msgs::Image::ConstPtr& msg) {
+  ROS_INFO_ONCE("Got depth raw image.");
   if (!depth_ready_ && data_available_) {
     std::lock_guard<std::mutex> guard(depth_mutex_);
     depth_ready_ = true;
-    // BUG: When getting the stamp from the message tf sais that it cannot
-    // extrapolate to the future. This does not happen all the time but only
-    // with a portion of the messages. tf streaming at 245Hz and camera at 30Hz.
     // depth_msg_time_stamp_ = msg->header.stamp;
     depth_msg_time_stamp_ = ros::Time(0);
     main_engine_->setImageTimeStamp(depth_msg_time_stamp_.toSec());
+    // When streaming over Gazebo
     cv_depth_image_ =
-        cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_16UC1);
+        cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_32FC1);
+    (cv_depth_image_->image).convertTo(cv_depth_image_->image, CV_16UC1,
+                                     4294967296.0 / 65536.0);
+    //    cv_depth_image_->encoding = sensor_msgs::image_encodings::TYPE_16UC1;
+    //    cv_depth_image_->header = msg->header;
+
+    // When doing live streaming or rosbag
+//    cv_depth_image_ =
+//        cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_16UC1);
   }
 }
 
 void RosImageSourceEngine::rgbCameraInfoCallback(
     const sensor_msgs::CameraInfo::ConstPtr& msg) {
+  ROS_INFO("Got rgb camera info.");
   image_size_rgb_.x = msg->width;
   image_size_rgb_.y = msg->height;
   rgb_info_ = *msg;
   rgb_info_ready_ = true;
-  ROS_INFO("Got rgb camera info.");
 }
 
 void RosImageSourceEngine::depthCameraInfoCallback(
     const sensor_msgs::CameraInfo::ConstPtr& msg) {
+  ROS_INFO("Got depth camera info.");
   image_size_depth_.x = msg->width;
   image_size_depth_.y = msg->height;
   depth_info_ = *msg;
   depth_info_ready_ = true;
-  ROS_INFO("Got depth camera info.");
 }
 
 void RosImageSourceEngine::getImages(ITMUChar4Image* rgb_image,

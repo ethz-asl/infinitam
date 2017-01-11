@@ -158,6 +158,7 @@ InfinitamNode::~InfinitamNode() {
   delete main_engine_;
   delete internal_settings_;
   delete image_source_;
+  delete pose_source_;
   if (imu_source_ != nullptr) delete imu_source_;
 }
 
@@ -165,7 +166,7 @@ bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
                                    std_srvs::SetBool::Response& response) {
   LOG(INFO) << "startInfinitam start!";
 
-  // turn on infinitam
+  // Turn on infinitam
   if (request.data) {
     int arg = 1;
     do {
@@ -528,7 +529,6 @@ void InfinitamNode::SetUpSources() {
   if (image_source_ == nullptr) {
     printf("Checking if there are suitable ROS messages being published.\n");
 
-    pose_source_ = new RosPoseSourceEngine(node_handle_);
     image_source_ =
         new RosImageSourceEngine(node_handle_, calibration_filename);
 
@@ -541,9 +541,12 @@ void InfinitamNode::SetUpSources() {
                                         &RosImageSourceEngine::depthCallback,
                                         (RosImageSourceEngine*)image_source_);
 
-    tf_sub_ =
-        node_handle_.subscribe("/tf", 10, &RosPoseSourceEngine::TFCallback,
-                               (RosPoseSourceEngine*)pose_source_);
+    if (internal_settings_->trackerType == ITMLibSettings::TRACKER_EXTERNAL) {
+      pose_source_ = new RosPoseSourceEngine(node_handle_);
+      tf_sub_ =
+          node_handle_.subscribe("/tf", 10, &RosPoseSourceEngine::TFCallback,
+                                 (RosPoseSourceEngine*)pose_source_);
+    }
 
     if (image_source_->getDepthImageSize().x == 0) {
       delete image_source_;
