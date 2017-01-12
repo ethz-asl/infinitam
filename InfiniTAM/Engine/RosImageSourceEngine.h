@@ -28,9 +28,6 @@
 
 #include <std_srvs/Empty.h>
 #include <tf/transform_broadcaster.h>
-#include <tf/transform_datatypes.h>
-#include <tf/transform_listener.h>
-#include <visualization_msgs/Marker.h>
 #include "../ITMLib/Utils/ITMLibDefines.h"
 
 // #endif
