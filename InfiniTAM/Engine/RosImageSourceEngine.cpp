@@ -20,9 +20,14 @@ RosImageSourceEngine::RosImageSourceEngine(ros::NodeHandle& nh,
       depth_ready_(false),
       rgb_info_ready_(false),
       depth_info_ready_(false),
-      data_available_(true) {
+      data_available_(true),
+      is_raw_image_TYPE_32FC1_(false) {
   ros::Subscriber rgb_info_sub;
   ros::Subscriber depth_info_sub;
+
+  // Read from ROS parameter server if one should change the raw image type or
+  // not.
+  nh.param<bool>("raw_image_TYPE_32FC1", is_raw_image_TYPE_32FC1_, false);
 
   nh.param<std::string>("rgb_camera_info_topic", rgb_camera_info_topic_,
                         "/camera/rgb/camera_info");
@@ -122,7 +127,6 @@ void RosImageSourceEngine::depthCameraInfoCallback(
 
 void RosImageSourceEngine::getImages(ITMUChar4Image* rgb_image,
                                      ITMShortImage* raw_depth_image) {
-  //  ROS_INFO("getImages().");
 
   // Wait for frames.
   if (!data_available_) {
@@ -150,7 +154,6 @@ void RosImageSourceEngine::getImages(ITMUChar4Image* rgb_image,
   cv::Size rgb_size = cv_rgb_image_->image.size();
   uint rgb_rows = rgb_size.height;
   uint rgb_cols = rgb_size.width;
-  // ROS_INFO("processing rgb.");
   for (size_t i = 0; i < 3 * rgb_rows * rgb_cols; i += 3) {
     Vector4u pixel_value;
     pixel_value.r = cv_rgb_image_->image.data[i];
@@ -160,13 +163,11 @@ void RosImageSourceEngine::getImages(ITMUChar4Image* rgb_image,
     rgb_infinitam[i / 3] = pixel_value;
   }
 
-  // ROS_INFO("processing rgb done.");
   rgb_ready_ = false;
   depth_ready_ = false;
   data_available_ = true;
 }
 
-// bool RosEngine::hasMoreImages(void) { return (rgb_ready_ && depth_ready_); }
 bool RosImageSourceEngine::hasMoreImages(void) {
   if (!rgb_ready_ || !depth_ready_) {
     ros::spinOnce();

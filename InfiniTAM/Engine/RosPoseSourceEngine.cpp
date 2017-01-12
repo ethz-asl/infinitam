@@ -34,8 +34,8 @@ void RosPoseSourceEngine::TFCallback(const tf::tfMessage& tf_msg) {
 
     // Get the pose of the camera from the same time stamp as the latest image.
     // Images messages have a lower frequency then pose messages.
-//    latest_depth_image_stamp_.fromSec(main_engine_->getImageTimeStamp());
-    latest_depth_image_stamp_=ros::Time(0);
+    //    latest_depth_image_stamp_.fromSec(main_engine_->getImageTimeStamp());
+    latest_depth_image_stamp_ = ros::Time(0);
     // Get transform from world to camera frame.
     listener.lookupTransform(world_frame_id_, camera_frame_id_,
                              latest_depth_image_stamp_,
@@ -80,7 +80,7 @@ void RosPoseSourceEngine::TFCallback(const tf::tfMessage& tf_msg) {
         tf_world_to_camera_transform_at_start_.getBasis() *
         tf_infinitam_origin_to_camera_current_translation_in_world_frame;
 
-    // Camera transform wrt infinitam origin in RVIZ.
+    // Camera transform w.r.t. infinitam origin in RVIZ.
     tf_infinitam_origin_to_camera_transform_relative_.setOrigin(
         tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame);
     tf_infinitam_origin_to_camera_transform_relative_.setBasis(

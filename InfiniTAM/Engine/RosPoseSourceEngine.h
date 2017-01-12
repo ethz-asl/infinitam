@@ -64,13 +64,14 @@ class RosPoseSourceEngine : public PoseSourceEngine {
   tf::TransformListener listener;
   tf::TransformBroadcaster broadcaster;
 
-  // Infinitam Vector, represents translation from the infititam origin to the
+  // Infinitam Vector, represents translation from the infinitam origin to the
   // camera pose.
   Vector3f infinitam_translation_vector_;
-  // Infinitam Matrix, represents rotation from the infititam origin to the
+  // Infinitam Matrix, represents rotation from the infinitam origin to the
   // camera pose.
   Matrix3f infinitam_rotation_matrix_;
 
+ public:
   tf::StampedTransform tf_world_to_camera_transform_current_;
   tf::StampedTransform tf_world_to_camera_transform_at_start_;
   tf::StampedTransform tf_infinitam_origin_to_camera_transform_relative_;
@@ -79,7 +80,6 @@ class RosPoseSourceEngine : public PoseSourceEngine {
       tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame,
       tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame_rotated;
 
- public:
   RosPoseSourceEngine(ros::NodeHandle& nh);
   ~RosPoseSourceEngine();
 

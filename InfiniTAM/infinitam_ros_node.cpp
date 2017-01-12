@@ -1,15 +1,17 @@
 // Copyright 2014-2015 Isis Innovation Limited and the authors of InfiniTAM
 
-//#include <geometric_shapes/shapes.h>
-
 #include <glog/logging.h>
 
+#include <cstdlib>
+#include <string>
+
 #include <pcl/PolygonMesh.h>
-#include <pcl/io/obj_io.h>
+#include <pcl/io/vtk_lib_io.h>
 #include <pcl/ros/conversions.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl_msgs/PolygonMesh.h>
 
+#include <geometry_msgs/TransformStamped.h>
 #include <ros/package.h>
 #include <ros/ros.h>
 #include <sensor_msgs/Image.h>
@@ -18,8 +20,6 @@
 #include <shape_msgs/Mesh.h>
 #include <std_srvs/Empty.h>
 #include <std_srvs/SetBool.h>
-#include <cstdlib>
-#include <string>
 
 #include "Engine/CLIEngine.h"
 #include "Engine/ImageSourceEngine.h"
@@ -97,12 +97,12 @@ class InfinitamNode {
 
   //! Name for the depth camera frame id in TF.
   std::string camera_frame_id_;
+  //! Name for the world fixed frame id in TF.
+  std::string world_frame_id_;
 
-  // initialize service
+  //! Initialize Infinitam
   ros::ServiceServer start_infinitam_service_;
-
-  ros::ServiceServer build_mesh_service_;
-
+  //! Publish the mesh build in infinitam when called.
   ros::ServiceServer publish_mesh_service_;
 
   //! ROS publisher to send out the complete cloud.
@@ -118,11 +118,8 @@ class InfinitamNode {
   //! ROS Mesh of the map.
   shape_msgs::Mesh::Ptr ros_scene_mesh_ptr_;
 
+  //! Set to true if one wants to save the mesh to the file system.
   bool save_cloud_to_file_system_;
-
-  bool publish_point_cloud_;
-
-  bool publish_mesh_;
 
   //! PCL Mesh of the map
   pcl::PolygonMesh::Ptr mesh_ptr_;
@@ -273,44 +270,59 @@ bool InfinitamNode::publishMap(std_srvs::Empty::Request& request,
                  "The mesh has too few triangles, only: %d",
                  main_engine_->GetMesh()->noTotalTriangles);
 
-  if (publish_mesh_) {
-    // Publish point cloud.
-    pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_pcl(
-        new pcl::PointCloud<pcl::PointXYZ>);
+  // Publish point cloud.
+  pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_pcl(
+      new pcl::PointCloud<pcl::PointXYZ>);
+  sensor_msgs::PointCloud2 point_cloud_msg;
 
-    extractITMMeshToPclCloud(*triangle_array, point_cloud_pcl);
-    ROS_INFO_STREAM("Got Point Cloud");
+  extractITMMeshToPclCloud(*triangle_array, point_cloud_pcl);
+  ROS_INFO_STREAM("Got Point Cloud");
 
-    sensor_msgs::PointCloud2 point_cloud_msg;
+  if (internal_settings_->trackerType == ITMLibSettings::TRACKER_EXTERNAL) {
+    // Get the transform from the RosPoseSourceEngine.
+    pcl_ros::transformPointCloud(*point_cloud_pcl, *point_cloud_pcl,
+                                 static_cast<RosPoseSourceEngine*>(pose_source_)
+                                     ->tf_world_to_camera_transform_at_start_);
+    pcl::toROSMsg(*point_cloud_pcl, point_cloud_msg);
+    point_cloud_msg.header.frame_id = world_frame_id_;
+  } else {
+    // If we are not using the External Tracker put the cloud in the normal
+    // camera frame id.
     pcl::toROSMsg(*point_cloud_pcl, point_cloud_msg);
     point_cloud_msg.header.frame_id = camera_frame_id_;
-    point_cloud_msg.header.stamp = ros::Time::now();
-
-    complete_point_cloud_pub_.publish(point_cloud_msg);
-
-    ROS_INFO_STREAM("Going to extract PolygonMesh");
-    // Get the Mesh as PCL PolygonMesh .
-    extractITMMeshToPolygonMesh(point_cloud_pcl, mesh_ptr_);
-
-    ROS_INFO_STREAM("Loaded a PolygonMesh with "
-                    << mesh_ptr_->cloud.width * mesh_ptr_->cloud.height
-                    << " points and " << mesh_ptr_->polygons.size()
-                    << " polygons.");
-
-    // Convert PCL PolygonMesh into ROS shape_msgs Mesh.
-    convertPolygonMeshToRosMesh(mesh_ptr_, ros_scene_mesh_ptr_);
-    ROS_INFO_STREAM("Got ROS Mesh.");
-
-    // Publish ROS Mesh.
-    complete_mesh_pub_.publish(*ros_scene_mesh_ptr_);
-    ROS_INFO_STREAM("ROS Mesh published.");
   }
 
+  point_cloud_msg.header.stamp = ros::Time::now();
+  complete_point_cloud_pub_.publish(point_cloud_msg);
+
+  ROS_INFO_STREAM("Going to extract PolygonMesh");
+  // Get the Mesh as PCL PolygonMesh .
+  extractITMMeshToPolygonMesh(point_cloud_pcl, mesh_ptr_);
+
+  ROS_INFO_STREAM("Loaded a PolygonMesh with "
+                  << mesh_ptr_->cloud.width * mesh_ptr_->cloud.height
+                  << " points and " << mesh_ptr_->polygons.size()
+                  << " polygons.");
+
+  // Convert PCL PolygonMesh into ROS shape_msgs Mesh.
+  convertPolygonMeshToRosMesh(mesh_ptr_, ros_scene_mesh_ptr_);
+  ROS_INFO_STREAM("Got ROS Mesh.");
+
+  // Publish ROS Mesh.
+  complete_mesh_pub_.publish(*ros_scene_mesh_ptr_);
+  ROS_INFO_STREAM("ROS Mesh published.");
+
   if (save_cloud_to_file_system_) {
-    // Write a STL or OBJ File to the file system.
-    const std::string filename_stl_file =
-        ros::package::getPath("infinitam") + "/scenes/scene_mesh" + ".stl";
-    main_engine_->GetMesh()->WriteSTL(filename_stl_file.c_str());
+    if (internal_settings_->trackerType == ITMLibSettings::TRACKER_EXTERNAL) {
+      // Save mesh as PCL Polygonmesh since it is moved to world frame.
+      pcl::io::savePolygonFileSTL(
+          ros::package::getPath("infinitam") + "/scenes/scene_mesh.stl",
+          *mesh_ptr_);
+    } else {
+      const std::string filename_stl_file =
+          ros::package::getPath("infinitam") + "/scenes/scene_mesh" + ".stl";
+      main_engine_->GetMesh()->WriteSTL(filename_stl_file.c_str());
+    }
   }
 
   if (rm_triangle_from_cuda_memory) {
@@ -382,7 +394,7 @@ void InfinitamNode::extractITMMeshToPclCloud(
 
   std::size_t point_number = 0u;
 
-  // All vertices of the mesh are stored in the pcl point cloud.
+  // All vertices of the mesh are stored in the PCL point cloud.
   for (std::size_t i = 0u; i < nr_triangles; ++i) {
     point_cloud_pcl->points[point_number].x = (&triangle_array)[i].p0.x;
     point_cloud_pcl->points[point_number].y = (&triangle_array)[i].p0.y;
@@ -459,7 +471,6 @@ void InfinitamNode::readParameters() {
   // Set the output one wants from Infinitam.
   node_handle_.param<bool>("save_cloud_to_file_system",
                            save_cloud_to_file_system_, true);
-  node_handle_.param<bool>("publish_mesh", publish_mesh_, false);
 
   // Set InfiniTAM settings.
   node_handle_.param<float>("viewFrustum_min",
@@ -470,6 +481,7 @@ void InfinitamNode::readParameters() {
 
   node_handle_.param<std::string>("camera_frame_id", camera_frame_id_,
                                   "sr300_depth_optical_frame");
+  node_handle_.param<std::string>("world_frame_id", world_frame_id_, "world");
 }
 
 void InfinitamNode::SetUpSources() {
@@ -531,11 +543,6 @@ void InfinitamNode::SetUpSources() {
 
     image_source_ =
         new RosImageSourceEngine(node_handle_, calibration_filename);
-
-    // Read from ROS parameter server if one should change the raw image type or
-    // not.
-    node_handle_.param<bool>("raw_image_TYPE_32FC1",
-                             image_source_->is_raw_image_TYPE_32FC1_, false);
 
     // Get images from ROS topic.
     rgb_sub_ = node_handle_.subscribe(rgb_image_topic, 10,
