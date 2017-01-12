@@ -19,6 +19,8 @@ class ImageSourceEngine {
 
   bool set_camera_pose_;
   ITMMainEngine* main_engine_ = nullptr;
+  //! Set to true if getting the raw depth images from gazebo.
+  bool is_raw_image_TYPE_32FC1_ = false;
 };
 
 class ImageFileReader : public ImageSourceEngine {

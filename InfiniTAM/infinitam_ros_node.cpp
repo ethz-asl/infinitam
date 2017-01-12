@@ -331,7 +331,7 @@ void InfinitamNode::extractITMMeshToPolygonMesh(
   ROS_INFO_STREAM("nr_points:  " << nr_points);
 
   // Build the point cloud.
-  pcl::toROSMsg(*point_cloud_pcl, polygon_mesh_ptr->cloud);
+  pcl::toPCLPointCloud2(*point_cloud_pcl, polygon_mesh_ptr->cloud);
 
   // write vertices
   ROS_DEBUG_STREAM("Going to fill the mesh with faces.");
@@ -531,6 +531,11 @@ void InfinitamNode::SetUpSources() {
 
     image_source_ =
         new RosImageSourceEngine(node_handle_, calibration_filename);
+
+    // Read from ROS parameter server if one should change the raw image type or
+    // not.
+    node_handle_.param<bool>("raw_image_TYPE_32FC1",
+                             image_source_->is_raw_image_TYPE_32FC1_, false);
 
     // Get images from ROS topic.
     rgb_sub_ = node_handle_.subscribe(rgb_image_topic, 10,

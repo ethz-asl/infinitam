@@ -85,20 +85,20 @@ void RosImageSourceEngine::depthCallback(
   if (!depth_ready_ && data_available_) {
     std::lock_guard<std::mutex> guard(depth_mutex_);
     depth_ready_ = true;
-    // depth_msg_time_stamp_ = msg->header.stamp;
-    depth_msg_time_stamp_ = ros::Time(0);
+    depth_msg_time_stamp_ = msg->header.stamp;
     main_engine_->setImageTimeStamp(depth_msg_time_stamp_.toSec());
-    // When streaming over Gazebo
-    cv_depth_image_ =
-        cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_32FC1);
-    (cv_depth_image_->image).convertTo(cv_depth_image_->image, CV_16UC1,
-                                     4294967296.0 / 65536.0);
-    //    cv_depth_image_->encoding = sensor_msgs::image_encodings::TYPE_16UC1;
-    //    cv_depth_image_->header = msg->header;
 
-    // When doing live streaming or rosbag
-//    cv_depth_image_ =
-//        cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_16UC1);
+    // When streaming raw images from Gazebo.
+    if (is_raw_image_TYPE_32FC1_) {
+      cv_depth_image_ =
+          cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_32FC1);
+      (cv_depth_image_->image)
+          .convertTo(cv_depth_image_->image, CV_16UC1, 1000);
+    } else {
+      // When doing live streaming from the camera.
+      cv_depth_image_ =
+          cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_16UC1);
+    }
   }
 }
 
