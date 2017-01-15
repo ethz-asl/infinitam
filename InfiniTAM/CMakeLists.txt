@@ -25,13 +25,8 @@ endmacro()
 find_package(GLUT REQUIRED)
 find_package(OpenGL REQUIRED)
 
-#find_package(CUDA QUIET)
-#CANONIFY_BOOL(CUDA_FOUND)
-#message(STATUS "CUDA found: " ${CUDA_FOUND})
-
-set (WITH_CUDA FALSE)
-message(STATUS "CUDA found: " ${WITH_CUDA})
-set (CUDA_FOUND FALSE)
+find_package(CUDA QUIET)
+CANONIFY_BOOL(CUDA_FOUND)
 message(STATUS "CUDA found: " ${CUDA_FOUND})
 
 find_package(libuvc QUIET)

@@ -278,17 +278,14 @@ bool InfinitamNode::publishMap(std_srvs::Empty::Request& request,
   extractITMMeshToPclCloud(*triangle_array, point_cloud_pcl);
   ROS_INFO_STREAM("Got Point Cloud");
 
+  pcl::toROSMsg(*point_cloud_pcl, point_cloud_msg);
   if (static_cast<RosPoseSourceEngine*>(pose_source_)->got_tf_msg_) {
-    // Get the transform from the RosPoseSourceEngine.
-    pcl_ros::transformPointCloud(*point_cloud_pcl, *point_cloud_pcl,
-                                 static_cast<RosPoseSourceEngine*>(pose_source_)
-                                     ->tf_world_to_camera_transform_at_start_);
-    pcl::toROSMsg(*point_cloud_pcl, point_cloud_msg);
+    // If we are using the External tracker then the cloud is in the
+    // world frame.
     point_cloud_msg.header.frame_id = world_frame_id_;
   } else {
     // If we are not using the External Tracker put the cloud in the normal
     // camera frame id.
-    pcl::toROSMsg(*point_cloud_pcl, point_cloud_msg);
     point_cloud_msg.header.frame_id = camera_frame_id_;
   }
 
@@ -313,16 +310,9 @@ bool InfinitamNode::publishMap(std_srvs::Empty::Request& request,
   ROS_INFO_STREAM("ROS Mesh published.");
 
   if (save_cloud_to_file_system_) {
-    if (internal_settings_->trackerType == ITMLibSettings::TRACKER_EXTERNAL) {
-      // Save mesh as PCL Polygonmesh since it is moved to world frame.
-      pcl::io::savePolygonFileSTL(
-          ros::package::getPath("infinitam") + "/scenes/scene_mesh.stl",
-          *mesh_ptr_);
-    } else {
-      const std::string filename_stl_file =
-          ros::package::getPath("infinitam") + "/scenes/scene_mesh" + ".stl";
-      main_engine_->GetMesh()->WriteSTL(filename_stl_file.c_str());
-    }
+    const std::string filename_stl_file =
+        ros::package::getPath("infinitam") + "/scenes/scene_mesh" + ".stl";
+    main_engine_->GetMesh()->WriteSTL(filename_stl_file.c_str());
   }
 
   if (rm_triangle_from_cuda_memory) {

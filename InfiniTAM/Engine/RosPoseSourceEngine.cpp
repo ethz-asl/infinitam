@@ -36,11 +36,12 @@ RosPoseSourceEngine::~RosPoseSourceEngine() {}
 // Get the pose of the camera from the forward kinematics of the robot.
 void RosPoseSourceEngine::TFCallback(const tf::tfMessage& tf_msg) {
   try {
-    CHECK_NOTNULL(main_engine_);
     if (first_time_tf_available_) {
+      // Check for the first time that the main_engine_ pointer is not null.
+      CHECK_NOTNULL(main_engine_);
       // If one is streaming over rosbag, give it some time to send the
       // transform.
-      listener.waitForTransform(world_frame_id_, camera_frame_id_, ros::Time(0),
+      listener.waitForTransform(camera_frame_id_, world_frame_id_, ros::Time(0),
                                 ros::Duration(5.0));
       first_time_tf_available_time_ = ros::Time::now();
     }
@@ -50,30 +51,24 @@ void RosPoseSourceEngine::TFCallback(const tf::tfMessage& tf_msg) {
     latest_depth_image_stamp_.fromSec(main_engine_->getImageTimeStamp());
     // If first image has not arrived yet,
     if (first_time_tf_available_time_ > latest_depth_image_stamp_) {
-      // Get transform from world to camera frame.
-      listener.lookupTransform(world_frame_id_, camera_frame_id_, ros::Time(0),
+      listener.lookupTransform(camera_frame_id_, world_frame_id_, ros::Time(0),
                                tf_world_to_camera_transform_current_);
       ROS_WARN("Getting the latest transform and not the image-synced one ");
     } else {
-      // Get transform from world to camera frame.
-      listener.lookupTransform(world_frame_id_, camera_frame_id_,
+      listener.waitForTransform(camera_frame_id_, world_frame_id_,
+                                latest_depth_image_stamp_, ros::Duration(0.5));
+      listener.lookupTransform(camera_frame_id_, world_frame_id_,
                                latest_depth_image_stamp_,
                                tf_world_to_camera_transform_current_);
     }
+
     // Get the first transformation between the world and the camera.
     if (first_time_tf_available_) {
       got_tf_msg_ = true;
       tf_world_to_camera_transform_at_start_ =
           tf_world_to_camera_transform_current_;
-      // Set the infinitam inertial coordinate system.
-      Vector3f zero_vector;
-      zero_vector.x = zero_vector.y = zero_vector.z = 0.0f;
-      Matrix3f identity;
-      identity.setIdentity();
-      main_engine_->GetTrackingState()->pose_d->SetT(zero_vector);
-      main_engine_->GetTrackingState()->pose_d->SetR(identity);
 
-      // Origin of the map for infinitam
+      // Origin of the map for infinitam.
       broadcaster.sendTransform(tf::StampedTransform(
           tf_world_to_camera_transform_at_start_, ros::Time::now(),
           world_frame_id_, camera_initial_frame_id_));
@@ -82,99 +77,43 @@ void RosPoseSourceEngine::TFCallback(const tf::tfMessage& tf_msg) {
       broadcast_transformations = true;
     }
 
-    // Get infinitam origin to current camera frame transform.
-    tf_infinitam_origin_to_camera_transform_relative_.frame_id_ =
-        camera_initial_frame_id_;
-    //    tf_infinitam_origin_to_camera_transform_relative_.stamp_ =
-    //        latest_depth_image_stamp_;
-
-    tf_infinitam_origin_to_camera_current_rotation =
-        tf_world_to_camera_transform_at_start_.getBasis().inverse() *
-        tf_world_to_camera_transform_current_.getBasis();
-
-    tf_infinitam_origin_to_camera_current_translation_in_world_frame =
-        tf_world_to_camera_transform_current_.getOrigin() -
-        tf_world_to_camera_transform_at_start_.getOrigin();
-
-    tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame =
-        tf_world_to_camera_transform_at_start_.getBasis() *
-        tf_infinitam_origin_to_camera_current_translation_in_world_frame;
-
-    // Camera transform w.r.t. infinitam origin in RVIZ.
-    tf_infinitam_origin_to_camera_transform_relative_.setOrigin(
-        tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame);
-    tf_infinitam_origin_to_camera_transform_relative_.setBasis(
-        tf_infinitam_origin_to_camera_current_rotation);
-
-    tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame_rotated =
-        tf_infinitam_origin_to_camera_current_rotation.inverse() *
-        tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame;
-
     infinitam_translation_vector_.x =
-        -tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame_rotated
-             .getX();
+        tf_world_to_camera_transform_current_.getOrigin().getX();
     infinitam_translation_vector_.y =
-        -tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame_rotated
-             .getY();
+        tf_world_to_camera_transform_current_.getOrigin().getY();
     infinitam_translation_vector_.z =
-        -tf_infinitam_origin_to_camera_current_translation_in_infinitam_frame_rotated
-             .getZ();
+        tf_world_to_camera_transform_current_.getOrigin().getZ();
+
+    // Invert the rotation since we use this in the perspective of the camera.
+    tf_world_to_camera_transform_current_.setBasis(
+        tf_world_to_camera_transform_current_.getBasis().inverse());
 
     infinitam_rotation_matrix_.m00 =
-        tf_infinitam_origin_to_camera_transform_relative_.getBasis()
-            .getColumn(0)
-            .getX();
+        tf_world_to_camera_transform_current_.getBasis().getColumn(0).getX();
     infinitam_rotation_matrix_.m10 =
-        tf_infinitam_origin_to_camera_transform_relative_.getBasis()
-            .getColumn(0)
-            .getY();
+        tf_world_to_camera_transform_current_.getBasis().getColumn(0).getY();
     infinitam_rotation_matrix_.m20 =
-        tf_infinitam_origin_to_camera_transform_relative_.getBasis()
-            .getColumn(0)
-            .getZ();
+        tf_world_to_camera_transform_current_.getBasis().getColumn(0).getZ();
     infinitam_rotation_matrix_.m01 =
-        tf_infinitam_origin_to_camera_transform_relative_.getBasis()
-            .getColumn(1)
-            .getX();
+        tf_world_to_camera_transform_current_.getBasis().getColumn(1).getX();
     infinitam_rotation_matrix_.m11 =
-        tf_infinitam_origin_to_camera_transform_relative_.getBasis()
-            .getColumn(1)
-            .getY();
+        tf_world_to_camera_transform_current_.getBasis().getColumn(1).getY();
     infinitam_rotation_matrix_.m21 =
-        tf_infinitam_origin_to_camera_transform_relative_.getBasis()
-            .getColumn(1)
-            .getZ();
+        tf_world_to_camera_transform_current_.getBasis().getColumn(1).getZ();
     infinitam_rotation_matrix_.m02 =
-        tf_infinitam_origin_to_camera_transform_relative_.getBasis()
-            .getColumn(2)
-            .getX();
+        tf_world_to_camera_transform_current_.getBasis().getColumn(2).getX();
     infinitam_rotation_matrix_.m12 =
-        tf_infinitam_origin_to_camera_transform_relative_.getBasis()
-            .getColumn(2)
-            .getY();
+        tf_world_to_camera_transform_current_.getBasis().getColumn(2).getY();
     infinitam_rotation_matrix_.m22 =
-        tf_infinitam_origin_to_camera_transform_relative_.getBasis()
-            .getColumn(2)
-            .getZ();
-
-    ROS_DEBUG_STREAM("\n transformation infinitam origin to camera pose: \n"
-                     << infinitam_translation_vector_ << "\n");
-    ROS_DEBUG_STREAM("\n transformation infinitam origin to camera pose: \n"
-                     << infinitam_rotation_matrix_ << "\n");
+        tf_world_to_camera_transform_current_.getBasis().getColumn(2).getZ();
 
     if (broadcast_transformations) {
       // Visualize the transformations as ROS tfs.
 
-      // Broadcast the tf for origin of the map for infinitam.
+      // Broadcast the tf for initianl camera pose.
       broadcaster.sendTransform(tf::StampedTransform(
-          tf_world_to_camera_transform_at_start_, latest_depth_image_stamp_,
+          tf_world_to_camera_transform_at_start_, ros::Time::now(),
           world_frame_id_, camera_initial_frame_id_));
-      // Broadcast the tf for the current pose of the camera in infinitam
-      // coordinate system.
-      broadcaster.sendTransform(tf::StampedTransform(
-          tf_infinitam_origin_to_camera_transform_relative_,
-          latest_depth_image_stamp_, camera_initial_frame_id_,
-          current_infinitam_frame_id_));
     }
 
     if (set_camera_pose_) {
@@ -187,59 +126,6 @@ void RosPoseSourceEngine::TFCallback(const tf::tfMessage& tf_msg) {
   } catch (tf::TransformException& ex) {
     ROS_ERROR("Exception catched: %s", ex.what());
   }
-
-  // Only for testing right now.
-  try {
-    listener.lookupTransform(world_frame_id_, current_infinitam_frame_id_,
-                             latest_depth_image_stamp_,
-                             world_to_camera_transform_current_test_);
-
-  } catch (tf::TransformException& ex) {
-    ROS_ERROR("Exception catched2: %s", ex.what());
-  }
-
-  std::cout << "diff: " << std::endl << std::endl << std::endl;
-  std::cout << tf_world_to_camera_transform_current_.getOrigin().getX() -
-                   world_to_camera_transform_current_test_.getOrigin().getX()
-            << " "
-            << tf_world_to_camera_transform_current_.getOrigin().getY() -
-                   world_to_camera_transform_current_test_.getOrigin().getY()
-            << " "
-            << tf_world_to_camera_transform_current_.getOrigin().getZ() -
-                   world_to_camera_transform_current_test_.getOrigin().getZ()
-            << " " << std::endl;
-  std::cout
-      << tf_world_to_camera_transform_current_.getBasis().getRow(0).getX() -
-             world_to_camera_transform_current_test_.getBasis().getRow(0).getX()
-      << " "
-      << tf_world_to_camera_transform_current_.getBasis().getRow(0).getY() -
-             world_to_camera_transform_current_test_.getBasis().getRow(0).getY()
-      << " "
-      << tf_world_to_camera_transform_current_.getBasis().getRow(0).getZ() -
-             world_to_camera_transform_current_test_.getBasis().getRow(0).getZ()
-      << std::endl;
-  std::cout
-      << tf_world_to_camera_transform_current_.getBasis().getRow(1).getX() -
-             world_to_camera_transform_current_test_.getBasis().getRow(1).getX()
-      << " "
-      << tf_world_to_camera_transform_current_.getBasis().getRow(1).getY() -
-             world_to_camera_transform_current_test_.getBasis().getRow(1).getY()
-      << " "
-      << tf_world_to_camera_transform_current_.getBasis().getRow(1).getZ() -
-             world_to_camera_transform_current_test_.getBasis().getRow(1).getZ()
-      << std::endl;
-  std::cout
-      << tf_world_to_camera_transform_current_.getBasis().getRow(2).getX() -
-             world_to_camera_transform_current_test_.getBasis().getRow(2).getX()
-      << " "
-      << tf_world_to_camera_transform_current_.getBasis().getRow(2).getY() -
-             world_to_camera_transform_current_test_.getBasis().getRow(2).getY()
-      << " "
-      << tf_world_to_camera_transform_current_.getBasis().getRow(2).getZ() -
-             world_to_camera_transform_current_test_.getBasis().getRow(2).getZ()
-      << std::endl;
-
-
 }
 
 bool RosPoseSourceEngine::hasMoreMeasurements(void) {
