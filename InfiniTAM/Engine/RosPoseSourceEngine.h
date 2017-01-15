@@ -43,13 +43,21 @@ class RosPoseSourceEngine : public PoseSourceEngine {
   //! True if one wants to broadcast the transforms calculated here.
   bool broadcast_transformations;
 
+  //! Is set to false after first tf arrives, this is used to store the first
+  //! transformation in a separate variable.
   bool first_time_tf_available_;
+  ros::Time first_time_tf_available_time_;
 
   //! Time stamp of the latest available image.
   ros::Time latest_depth_image_stamp_;
 
   //! Name for the depth camera frame id in TF.
   std::string camera_frame_id_;
+  //! Name for the depth camera frame id in TF at the beginning.
+  std::string camera_initial_frame_id_;
+  //! Only for testing.
+  std::string current_infinitam_frame_id_;
+
   //! Name for the fixed frame in TF.
   std::string world_frame_id_;
   //! ROS topic name where the generated complete cloud is published.
@@ -72,7 +80,14 @@ class RosPoseSourceEngine : public PoseSourceEngine {
   Matrix3f infinitam_rotation_matrix_;
 
  public:
+  //! Set set the camera pose from the incoming tf messages.
+  bool set_camera_pose_;
+
+  //! True if one has got tf
+  bool got_tf_msg_;
+
   tf::StampedTransform tf_world_to_camera_transform_current_;
+  tf::StampedTransform world_to_camera_transform_current_test_;
   tf::StampedTransform tf_world_to_camera_transform_at_start_;
   tf::StampedTransform tf_infinitam_origin_to_camera_transform_relative_;
   tf::Matrix3x3 tf_infinitam_origin_to_camera_current_rotation;

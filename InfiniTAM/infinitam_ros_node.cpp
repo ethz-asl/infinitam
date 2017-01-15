@@ -229,7 +229,7 @@ bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
     ROS_INFO("GUI Engine Initialized.");
     UIEngine::Instance()->Run();
     ROS_INFO("Done.");
-    image_source_->set_camera_pose_ = false;
+    static_cast<RosPoseSourceEngine*>(pose_source_)->set_camera_pose_ = false;
     UIEngine::Instance()->Shutdown();
   }
 
@@ -278,7 +278,7 @@ bool InfinitamNode::publishMap(std_srvs::Empty::Request& request,
   extractITMMeshToPclCloud(*triangle_array, point_cloud_pcl);
   ROS_INFO_STREAM("Got Point Cloud");
 
-  if (internal_settings_->trackerType == ITMLibSettings::TRACKER_EXTERNAL) {
+  if (static_cast<RosPoseSourceEngine*>(pose_source_)->got_tf_msg_) {
     // Get the transform from the RosPoseSourceEngine.
     pcl_ros::transformPointCloud(*point_cloud_pcl, *point_cloud_pcl,
                                  static_cast<RosPoseSourceEngine*>(pose_source_)
@@ -479,6 +479,11 @@ void InfinitamNode::readParameters() {
   node_handle_.param<float>(
       "viewFrustum_max", internal_settings_->sceneParams.viewFrustum_max, 3.0f);
 
+  int tracker;
+  node_handle_.param<int>("trackerType", tracker, 1);
+  internal_settings_->trackerType =
+      static_cast<ITMLibSettings::TrackerType>(tracker);
+
   node_handle_.param<std::string>("camera_frame_id", camera_frame_id_,
                                   "sr300_depth_optical_frame");
   node_handle_.param<std::string>("world_frame_id", world_frame_id_, "world");
@@ -553,12 +558,17 @@ void InfinitamNode::SetUpSources() {
                                         &RosImageSourceEngine::depthCallback,
                                         (RosImageSourceEngine*)image_source_);
 
+    // If the tracker is set to External, set the camera position from the ros
+    // tf msg. If not set to External, the tf are received and used to transform
+    // output mesh but not used to transform the camera during mapping.
+    pose_source_ = new RosPoseSourceEngine(node_handle_);
     if (internal_settings_->trackerType == ITMLibSettings::TRACKER_EXTERNAL) {
-      pose_source_ = new RosPoseSourceEngine(node_handle_);
-      tf_sub_ =
-          node_handle_.subscribe("/tf", 10, &RosPoseSourceEngine::TFCallback,
-                                 (RosPoseSourceEngine*)pose_source_);
+      static_cast<RosPoseSourceEngine*>(pose_source_)->set_camera_pose_ = true;
     }
+
+    tf_sub_ =
+        node_handle_.subscribe("/tf", 10, &RosPoseSourceEngine::TFCallback,
+                               (RosPoseSourceEngine*)pose_source_);
 
     if (image_source_->getDepthImageSize().x == 0) {
       delete image_source_;

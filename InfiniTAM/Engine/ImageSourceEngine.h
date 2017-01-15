@@ -17,7 +17,6 @@ class ImageSourceEngine {
   virtual Vector2i getDepthImageSize(void) = 0;
   virtual Vector2i getRGBImageSize(void) = 0;
 
-  bool set_camera_pose_;
   ITMMainEngine* main_engine_ = nullptr;
 };
 

@@ -66,6 +66,7 @@ ITMMainEngine::ITMMainEngine(const ITMLibSettings *settings, const ITMRGBDCalib 
 
 	fusionActive = true;
 	mainProcessingActive = true;
+	image_time_stamp = pose_time_stamp = 0.0;
 }
 
 ITMMainEngine::~ITMMainEngine()
