@@ -220,6 +220,13 @@ bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
     image_source_->main_engine_ = main_engine_;
     pose_source_->main_engine_ = main_engine_;
 
+    // TODO(gocarlos): it would be nice to output the name of the enum here
+    // instead of intigers.
+    std::cout << "Using device: " << internal_settings_->deviceType
+              << std::endl;
+    std::cout << "Using tracker: " << internal_settings_->trackerType
+              << std::endl;
+
     UIEngine::Instance()->Initialise(argc, argv, image_source_, imu_source_,
                                      main_engine_, "./Files/Out",
                                      internal_settings_->deviceType);

@@ -41,7 +41,7 @@ ITMLibSettings::ITMLibSettings(void)
   useBilateralFilter = false;
 
   // trackerType = TRACKER_COLOR;
-   trackerType = TRACKER_EXTERNAL;
+  trackerType = TRACKER_EXTERNAL;
   // trackerType = TRACKER_ICP;
   // trackerType = TRACKER_REN;
   // trackerType = TRACKER_IMU;
@@ -84,7 +84,6 @@ ITMLibSettings::ITMLibSettings(void)
   }
   if (trackerType == TRACKER_EXTERNAL) {
     std::cout << "TRACKER_EXTERNAL" << std::endl;
-    std::cout << "deviceType: " << deviceType << std::endl;
   }
 }
 
