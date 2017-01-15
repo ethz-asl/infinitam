@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include <glog/logging.h>
 #include "ImageSourceEngine.h"
+
+#include <glog/logging.h>
 
 #include <mutex>
 #include <string>
@@ -26,7 +27,6 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/image_encodings.h>
 
-#include <std_srvs/Empty.h>
 #include <tf/transform_broadcaster.h>
 #include "../ITMLib/Utils/ITMLibDefines.h"
 

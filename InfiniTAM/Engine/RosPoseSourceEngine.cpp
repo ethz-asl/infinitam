@@ -5,8 +5,6 @@
 #include <stdexcept>
 #include <string>
 
-#include "../Utils/FileUtils.h"
-
 #ifdef COMPILE_WITH_Ros
 
 namespace InfiniTAM {
@@ -18,17 +16,12 @@ RosPoseSourceEngine::RosPoseSourceEngine(ros::NodeHandle& nh)
       broadcast_transformations(false),
       got_tf_msg_(false),
       set_camera_pose_(true) {
-  // set the topic and frame_id names.
+  // Set the topic and frame_id names.
   nh.param<std::string>("camera_frame_id", camera_frame_id_,
                         "camera_depth_optical_frame");
   nh.param<std::string>("camera_initial_frame_id", camera_initial_frame_id_,
                         "tf_camera_initial");
-
-  current_infinitam_frame_id_ = "infinitam_pose";
-
   nh.param<std::string>("world_frame_id", world_frame_id_, "world");
-  nh.param<std::string>("complete_cloud", complete_cloud_topic_,
-                        "/complete_cloud");
 }
 
 RosPoseSourceEngine::~RosPoseSourceEngine() {}
