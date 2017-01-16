@@ -20,14 +20,9 @@ RosImageSourceEngine::RosImageSourceEngine(ros::NodeHandle& nh,
       depth_ready_(false),
       rgb_info_ready_(false),
       depth_info_ready_(false),
-      data_available_(true),
-      is_raw_image_TYPE_32FC1_(false) {
+      data_available_(true) {
   ros::Subscriber rgb_info_sub;
   ros::Subscriber depth_info_sub;
-
-  // Read from ROS parameter server if one should change the raw image type or
-  // not.
-  nh.param<bool>("raw_image_TYPE_32FC1", is_raw_image_TYPE_32FC1_, false);
 
   nh.param<std::string>("rgb_camera_info_topic", rgb_camera_info_topic_,
                         "/camera/rgb/camera_info");
@@ -94,7 +89,7 @@ void RosImageSourceEngine::depthCallback(
     main_engine_->setImageTimeStamp(depth_msg_time_stamp_.toSec());
 
     // When streaming raw images from Gazebo.
-    if (is_raw_image_TYPE_32FC1_) {
+    if (msg->encoding == sensor_msgs::image_encodings::TYPE_32FC1) {
       cv_depth_image_ =
           cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_32FC1);
       (cv_depth_image_->image)
@@ -127,7 +122,6 @@ void RosImageSourceEngine::depthCameraInfoCallback(
 
 void RosImageSourceEngine::getImages(ITMUChar4Image* rgb_image,
                                      ITMShortImage* raw_depth_image) {
-
   // Wait for frames.
   if (!data_available_) {
     return;

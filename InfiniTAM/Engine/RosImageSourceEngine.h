@@ -64,9 +64,6 @@ class RosImageSourceEngine : public ImageSourceEngine {
    */
   ros::Time depth_msg_time_stamp_;
 
-  //! Set to true if getting the raw depth images from gazebo.
-  bool is_raw_image_TYPE_32FC1_;
-
  public:
   RosImageSourceEngine(ros::NodeHandle& nh, const char*& calibration_filename);
 
