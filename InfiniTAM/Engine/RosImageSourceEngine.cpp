@@ -65,57 +65,63 @@ RosImageSourceEngine::RosImageSourceEngine(ros::NodeHandle& nh,
   this->calib.disparityCalib.params = Vector2f(1.0f / 1000.0f, 0.0f);
 }
 
-RosImageSourceEngine::~RosImageSourceEngine() {}
+RosImageSourceEngine::~RosImageSourceEngine() {
+}
 
 void RosImageSourceEngine::rgbCallback(
     const sensor_msgs::Image::ConstPtr& msg) {
+  ROS_INFO_ONCE("Got rgb raw image.");
   if (!rgb_ready_ && data_available_) {
     std::lock_guard<std::mutex> guard(rgb_mutex_);
     rgb_ready_ = true;
 
-    cv_rgb_image_ =
-        cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::RGB8);
+    cv_rgb_image_ = cv_bridge::toCvCopy(msg,
+                                        sensor_msgs::image_encodings::RGB8);
   }
 }
 
 void RosImageSourceEngine::depthCallback(
     const sensor_msgs::Image::ConstPtr& msg) {
+  ROS_INFO_ONCE("Got depth raw image.");
   if (!depth_ready_ && data_available_) {
     std::lock_guard<std::mutex> guard(depth_mutex_);
     depth_ready_ = true;
-    // BUG: When getting the stamp from the message tf sais that it cannot
-    // extrapolate to the future. This does not happen all the time but only
-    // with a portion of the messages. tf streaming at 245Hz and camera at 30Hz.
-    // depth_msg_time_stamp_ = msg->header.stamp;
-    depth_msg_time_stamp_ = ros::Time(0);
+    depth_msg_time_stamp_ = msg->header.stamp;
     main_engine_->setImageTimeStamp(depth_msg_time_stamp_.toSec());
-    cv_depth_image_ =
-        cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_16UC1);
+    CHECK(
+        msg->encoding == sensor_msgs::image_encodings::TYPE_32FC1
+            || msg->encoding == sensor_msgs::image_encodings::TYPE_16UC1);
+    cv_depth_image_ = cv_bridge::toCvCopy(msg, msg->encoding);
+    // When streaming raw images from Gazebo.
+    if (msg->encoding == sensor_msgs::image_encodings::TYPE_32FC1) {
+      constexpr double kDepthScalingFactor = 1000.0;
+      // When doing live streaming from the camera.
+      (cv_depth_image_->image)
+          .convertTo(cv_depth_image_->image, CV_16UC1, kDepthScalingFactor);
+    }
   }
 }
 
 void RosImageSourceEngine::rgbCameraInfoCallback(
     const sensor_msgs::CameraInfo::ConstPtr& msg) {
+  ROS_INFO("Got rgb camera info.");
   image_size_rgb_.x = msg->width;
   image_size_rgb_.y = msg->height;
   rgb_info_ = *msg;
   rgb_info_ready_ = true;
-  ROS_INFO("Got rgb camera info.");
 }
 
 void RosImageSourceEngine::depthCameraInfoCallback(
     const sensor_msgs::CameraInfo::ConstPtr& msg) {
+  ROS_INFO("Got depth camera info.");
   image_size_depth_.x = msg->width;
   image_size_depth_.y = msg->height;
   depth_info_ = *msg;
   depth_info_ready_ = true;
-  ROS_INFO("Got depth camera info.");
 }
 
 void RosImageSourceEngine::getImages(ITMUChar4Image* rgb_image,
-                                     ITMShortImage* raw_depth_image) {
-  //  ROS_INFO("getImages().");
-
+ITMShortImage* raw_depth_image) {
   // Wait for frames.
   if (!data_available_) {
     return;
@@ -131,8 +137,8 @@ void RosImageSourceEngine::getImages(ITMUChar4Image* rgb_image,
   uint depth_cols = depth_size.width;
   for (size_t i = 0; i < depth_rows * depth_cols; ++i) {
     raw_depth_infinitam[i] =
-        ((cv_depth_image_->image.data[2 * i + 1] << 8) & 0xFF00) |
-        (cv_depth_image_->image.data[2 * i] & 0xFF);
+    ((cv_depth_image_->image.data[2 * i + 1] << 8) & 0xFF00) |
+    (cv_depth_image_->image.data[2 * i] & 0xFF);
   }
 
   // Setup infinitam rgb frame.
@@ -142,7 +148,6 @@ void RosImageSourceEngine::getImages(ITMUChar4Image* rgb_image,
   cv::Size rgb_size = cv_rgb_image_->image.size();
   uint rgb_rows = rgb_size.height;
   uint rgb_cols = rgb_size.width;
-  // ROS_INFO("processing rgb.");
   for (size_t i = 0; i < 3 * rgb_rows * rgb_cols; i += 3) {
     Vector4u pixel_value;
     pixel_value.r = cv_rgb_image_->image.data[i];
@@ -152,13 +157,11 @@ void RosImageSourceEngine::getImages(ITMUChar4Image* rgb_image,
     rgb_infinitam[i / 3] = pixel_value;
   }
 
-  // ROS_INFO("processing rgb done.");
   rgb_ready_ = false;
   depth_ready_ = false;
   data_available_ = true;
 }
 
-// bool RosEngine::hasMoreImages(void) { return (rgb_ready_ && depth_ready_); }
 bool RosImageSourceEngine::hasMoreImages(void) {
   if (!rgb_ready_ || !depth_ready_) {
     ros::spinOnce();
@@ -169,31 +172,33 @@ bool RosImageSourceEngine::hasMoreImages(void) {
 Vector2i RosImageSourceEngine::getDepthImageSize(void) {
   return image_size_depth_;
 }
-Vector2i RosImageSourceEngine::getRGBImageSize(void) { return image_size_rgb_; }
+Vector2i RosImageSourceEngine::getRGBImageSize(void) {
+  return image_size_rgb_;
+}
 
 }  // namespace Engine
 }  // namespace InfiniTAM
 #else
 
 namespace InfiniTAM {
-namespace Engine {
+  namespace Engine {
 
-RosImageSourceEngine::RosImageSourceEngine(const ros::NodeHandle& nh,
-                                           const char*& calibration_filename)
+    RosImageSourceEngine::RosImageSourceEngine(const ros::NodeHandle& nh,
+        const char*& calibration_filename)
     : ImageSourceEngine(calibration_filename) {
-  printf("Compiled without ROS support.\n");
-}
-RosImageSourceEngine::~RosImageSourceEngine() {}
-void RosImageSourceEngine::getImages(ITMUChar4Image* rgb_image,
-                                     ITMShortImage* raw_depth_image) {
-  return;
-}
-bool RosImageSourceEngine::hasMoreImages(void) { return false; }
-Vector2i RosImageSourceEngine::getDepthImageSize(void) {
-  return Vector2i(0, 0);
-}
-Vector2i RosImageSourceEngine::getRGBImageSize(void) { return Vector2i(0, 0); }
-}  // namespace Engine
+      printf("Compiled without ROS support.\n");
+    }
+    RosImageSourceEngine::~RosImageSourceEngine() {}
+    void RosImageSourceEngine::getImages(ITMUChar4Image* rgb_image,
+        ITMShortImage* raw_depth_image) {
+      return;
+    }
+    bool RosImageSourceEngine::hasMoreImages(void) {return false;}
+    Vector2i RosImageSourceEngine::getDepthImageSize(void) {
+      return Vector2i(0, 0);
+    }
+    Vector2i RosImageSourceEngine::getRGBImageSize(void) {return Vector2i(0, 0);}
+  }  // namespace Engine
 }  // namespace InfiniTAM
 
 #endif

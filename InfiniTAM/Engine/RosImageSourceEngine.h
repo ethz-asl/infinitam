@@ -3,6 +3,7 @@
 #pragma once
 
 #include "ImageSourceEngine.h"
+
 #include <glog/logging.h>
 
 #include <mutex>
@@ -26,11 +27,7 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/image_encodings.h>
 
-#include <std_srvs/Empty.h>
-#include <visualization_msgs/Marker.h>
 #include <tf/transform_broadcaster.h>
-#include <tf/transform_datatypes.h>
-#include <tf/transform_listener.h>
 #include "../ITMLib/Utils/ITMLibDefines.h"
 
 // #endif
@@ -61,6 +58,10 @@ class RosImageSourceEngine : public ImageSourceEngine {
   sensor_msgs::CameraInfo rgb_info_;
   sensor_msgs::CameraInfo depth_info_;
 
+  /*!
+   * Time stamp of the incoming images. This is used to synchronize the
+   * incoming images with the pose estimation.
+   */
   ros::Time depth_msg_time_stamp_;
 
  public:
@@ -74,10 +75,9 @@ class RosImageSourceEngine : public ImageSourceEngine {
 
   // ImageSourceEngine
   bool hasMoreImages(void);
-  void getImages(ITMUChar4Image*rgb, ITMShortImage* raw_depth);
+  void getImages(ITMUChar4Image* rgb, ITMShortImage* raw_depth);
   Vector2i getDepthImageSize(void);
   Vector2i getRGBImageSize(void);
-    };
-  }
-  // namespace Engine
-  }// namespace InfiniTAM
+};
+}  // namespace Engine
+}  // namespace InfiniTAM
