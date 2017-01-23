@@ -227,6 +227,13 @@ bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
     std::cout << "Using tracker: " << internal_settings_->trackerType
               << std::endl;
 
+    std::cout << "viewFrustum_max: "
+              << internal_settings_->sceneParams.viewFrustum_max << std::endl;
+    std::cout << "viewFrustum_min: "
+              << internal_settings_->sceneParams.viewFrustum_min << std::endl;
+    std::cout << "voxelSize: " << internal_settings_->sceneParams.voxelSize
+              << std::endl;
+
     UIEngine::Instance()->Initialise(argc, argv, image_source_, imu_source_,
                                      main_engine_, "./Files/Out",
                                      internal_settings_->deviceType);
@@ -475,6 +482,8 @@ void InfinitamNode::readParameters() {
                             0.35f);
   node_handle_.param<float>(
       "viewFrustum_max", internal_settings_->sceneParams.viewFrustum_max, 3.0f);
+  node_handle_.param<float>(
+      "voxelSize", internal_settings_->sceneParams.voxelSize, 0.005f);
 
   int tracker;
   node_handle_.param<int>("trackerType", tracker, 1);
