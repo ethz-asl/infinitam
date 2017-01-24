@@ -6,8 +6,8 @@
 #include <string>
 
 #include <pcl/PolygonMesh.h>
+#include <pcl/conversions.h>
 #include <pcl/io/vtk_lib_io.h>
-#include <pcl/ros/conversions.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl_msgs/PolygonMesh.h>
 
@@ -159,6 +159,8 @@ InfinitamNode::~InfinitamNode() {
   if (imu_source_ != nullptr) delete imu_source_;
 }
 
+// TODO(gocarlos): this should be done with actionlib or something similar in
+// order to let infinitam map, parallel to other tasks.
 bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
                                    std_srvs::SetBool::Response& response) {
   LOG(INFO) << "startInfinitam start!";
@@ -249,6 +251,11 @@ bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
 
   // Turn off infinitam.
   if (!request.data) {
+    static_cast<RosPoseSourceEngine*>(pose_source_)->set_camera_pose_ = false;
+
+    // Stop subscribe to messages.
+    tf_sub_.shutdown();
+
     UIEngine::Instance()->mainLoopAction = UIEngine::PROCESS_PAUSED;
     UIEngine::Instance()->mainLoopAction = UIEngine::EXIT;
   }
@@ -482,8 +489,8 @@ void InfinitamNode::readParameters() {
                             0.35f);
   node_handle_.param<float>(
       "viewFrustum_max", internal_settings_->sceneParams.viewFrustum_max, 3.0f);
-  node_handle_.param<float>(
-      "voxelSize", internal_settings_->sceneParams.voxelSize, 0.005f);
+  node_handle_.param<float>("voxelSize",
+                            internal_settings_->sceneParams.voxelSize, 0.005f);
 
   int tracker;
   node_handle_.param<int>("trackerType", tracker, 1);
