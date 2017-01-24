@@ -243,6 +243,7 @@ bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
     // Start already with processing once the run method is called.
     UIEngine::Instance()->mainLoopAction = UIEngine::PROCESS_VIDEO;
     ROS_INFO("GUI Engine Initialized.");
+    response.success = true;
     UIEngine::Instance()->Run();
     ROS_INFO("Done.");
     static_cast<RosPoseSourceEngine*>(pose_source_)->set_camera_pose_ = false;
@@ -258,6 +259,7 @@ bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
 
     UIEngine::Instance()->mainLoopAction = UIEngine::PROCESS_PAUSED;
     UIEngine::Instance()->mainLoopAction = UIEngine::EXIT;
+    response.success = true;
   }
 
   return true;
@@ -333,7 +335,8 @@ bool InfinitamNode::publishMap(std_srvs::Empty::Request& request,
   if (save_cloud_to_file_system_) {
     const std::string filename_stl_file =
         ros::package::getPath("infinitam") + "/scenes/scene_mesh" + ".stl";
-    main_engine_->GetMesh()->WriteSTL(filename_stl_file.c_str());
+    pcl::io::savePolygonFileSTL(filename_stl_file, *mesh_ptr_);
+    //    main_engine_->GetMesh()->WriteSTL(filename_stl_file.c_str());
   }
 
   if (rm_triangle_from_cuda_memory) {
