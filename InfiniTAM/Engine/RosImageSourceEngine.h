@@ -58,11 +58,29 @@ class RosImageSourceEngine : public ImageSourceEngine {
   sensor_msgs::CameraInfo rgb_info_;
   sensor_msgs::CameraInfo depth_info_;
 
+  tf::TransformListener listener;
+  tf::StampedTransform tf_world_to_camera_transform_current_;
+
+  //! Name for the depth camera frame id in TF.
+  std::string camera_frame_id_;
+  //! Name for the depth camera frame id in TF at the beginning.
+  std::string camera_initial_frame_id_;
+  //! Name for the fixed frame in TF.
+  std::string world_frame_id_;
   /*!
-   * Time stamp of the incoming images. This is used to synchronize the
-   * incoming images with the pose estimation.
+   * Translation Vector, represents translation from the world origin to the
+   * camera pose.
    */
-  ros::Time depth_msg_time_stamp_;
+  Vector3f infinitam_translation_vector_;
+  /*!
+   * Rotation Matrix, represents rotation from the world origin to the
+   * camera pose.
+   */
+  Matrix3f infinitam_rotation_matrix_;
+  //! True if the the camera pose is to be set from the incoming tf messages.
+  bool set_camera_pose_;
+  //! True if one has got tf message.
+  bool got_tf_msg_;
 
  public:
   RosImageSourceEngine(ros::NodeHandle& nh, const char*& calibration_filename);
@@ -72,6 +90,7 @@ class RosImageSourceEngine : public ImageSourceEngine {
   void rgbCameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg);
   void depthCallback(const sensor_msgs::Image::ConstPtr& msg);
   void depthCameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg);
+  void setCameraPoseFromTF(const ros::Time& depth_img_time_stamp);
 
   // ImageSourceEngine
   bool hasMoreImages(void);

@@ -29,6 +29,10 @@ find_package(CUDA QUIET)
 CANONIFY_BOOL(CUDA_FOUND)
 message(STATUS "CUDA found: " ${CUDA_FOUND})
 
+#Work arround for now to compile without cuda on cuda anabled machines. 
+#set(CUDA_FOUND FALSE)
+#set(WITH_CUDA FALSE)
+
 find_package(libuvc QUIET)
 CANONIFY_BOOL(libuvc_FOUND)
 message(STATUS "libuvc found: ${libuvc_FOUND}")

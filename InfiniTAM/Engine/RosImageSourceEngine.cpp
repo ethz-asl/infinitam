@@ -20,7 +20,9 @@ RosImageSourceEngine::RosImageSourceEngine(ros::NodeHandle& nh,
       depth_ready_(false),
       rgb_info_ready_(false),
       depth_info_ready_(false),
-      data_available_(true) {
+      data_available_(true),
+      got_tf_msg_(false),
+      set_camera_pose_(true) {
   ros::Subscriber rgb_info_sub;
   ros::Subscriber depth_info_sub;
 
@@ -28,6 +30,12 @@ RosImageSourceEngine::RosImageSourceEngine(ros::NodeHandle& nh,
                         "/camera/rgb/camera_info");
   nh.param<std::string>("depth_camera_info_topic", depth_camera_info_topic_,
                         "/camera/depth/camera_info");
+
+  nh.param<std::string>("camera_frame_id", camera_frame_id_,
+                        "camera_depth_optical_frame");
+  nh.param<std::string>("camera_initial_frame_id", camera_initial_frame_id_,
+                        "tf_camera_initial");
+  nh.param<std::string>("world_frame_id", world_frame_id_, "world");
 
   depth_info_sub = nh.subscribe(depth_camera_info_topic_, 1,
                                 &RosImageSourceEngine::depthCameraInfoCallback,
@@ -65,8 +73,7 @@ RosImageSourceEngine::RosImageSourceEngine(ros::NodeHandle& nh,
   this->calib.disparityCalib.params = Vector2f(1.0f / 1000.0f, 0.0f);
 }
 
-RosImageSourceEngine::~RosImageSourceEngine() {
-}
+RosImageSourceEngine::~RosImageSourceEngine() {}
 
 void RosImageSourceEngine::rgbCallback(
     const sensor_msgs::Image::ConstPtr& msg) {
@@ -75,8 +82,8 @@ void RosImageSourceEngine::rgbCallback(
     std::lock_guard<std::mutex> guard(rgb_mutex_);
     rgb_ready_ = true;
 
-    cv_rgb_image_ = cv_bridge::toCvCopy(msg,
-                                        sensor_msgs::image_encodings::RGB8);
+    cv_rgb_image_ =
+        cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::RGB8);
   }
 }
 
@@ -86,11 +93,16 @@ void RosImageSourceEngine::depthCallback(
   if (!depth_ready_ && data_available_) {
     std::lock_guard<std::mutex> guard(depth_mutex_);
     depth_ready_ = true;
-    depth_msg_time_stamp_ = msg->header.stamp;
-    main_engine_->setImageTimeStamp(depth_msg_time_stamp_.toSec());
-    CHECK(
-        msg->encoding == sensor_msgs::image_encodings::TYPE_32FC1
-            || msg->encoding == sensor_msgs::image_encodings::TYPE_16UC1);
+    /*!
+     * Time stamp of the incoming images. This is used to synchronize the
+     * incoming images with the pose estimation.
+     */
+    ros::Time depth_msg_time_stamp;
+    depth_msg_time_stamp = msg->header.stamp;
+    setCameraPoseFromTF(depth_msg_time_stamp);
+
+    CHECK(msg->encoding == sensor_msgs::image_encodings::TYPE_32FC1 ||
+          msg->encoding == sensor_msgs::image_encodings::TYPE_16UC1);
     cv_depth_image_ = cv_bridge::toCvCopy(msg, msg->encoding);
     // When streaming raw images from Gazebo.
     if (msg->encoding == sensor_msgs::image_encodings::TYPE_32FC1) {
@@ -99,6 +111,50 @@ void RosImageSourceEngine::depthCallback(
       (cv_depth_image_->image)
           .convertTo(cv_depth_image_->image, CV_16UC1, kDepthScalingFactor);
     }
+  }
+}
+
+void RosImageSourceEngine::setCameraPoseFromTF(
+    const ros::Time& depth_img_time_stamp) {
+  listener.lookupTransform(camera_frame_id_, world_frame_id_,
+                           depth_img_time_stamp,
+                           tf_world_to_camera_transform_current_);
+
+  infinitam_translation_vector_.x =
+      tf_world_to_camera_transform_current_.getOrigin().getX();
+  infinitam_translation_vector_.y =
+      tf_world_to_camera_transform_current_.getOrigin().getY();
+  infinitam_translation_vector_.z =
+      tf_world_to_camera_transform_current_.getOrigin().getZ();
+
+  // Invert the rotation since we use this in the perspective of the camera.
+  tf_world_to_camera_transform_current_.setBasis(
+      tf_world_to_camera_transform_current_.getBasis().inverse());
+
+  infinitam_rotation_matrix_.m00 =
+      tf_world_to_camera_transform_current_.getBasis().getColumn(0).getX();
+  infinitam_rotation_matrix_.m10 =
+      tf_world_to_camera_transform_current_.getBasis().getColumn(0).getY();
+  infinitam_rotation_matrix_.m20 =
+      tf_world_to_camera_transform_current_.getBasis().getColumn(0).getZ();
+  infinitam_rotation_matrix_.m01 =
+      tf_world_to_camera_transform_current_.getBasis().getColumn(1).getX();
+  infinitam_rotation_matrix_.m11 =
+      tf_world_to_camera_transform_current_.getBasis().getColumn(1).getY();
+  infinitam_rotation_matrix_.m21 =
+      tf_world_to_camera_transform_current_.getBasis().getColumn(1).getZ();
+  infinitam_rotation_matrix_.m02 =
+      tf_world_to_camera_transform_current_.getBasis().getColumn(2).getX();
+  infinitam_rotation_matrix_.m12 =
+      tf_world_to_camera_transform_current_.getBasis().getColumn(2).getY();
+  infinitam_rotation_matrix_.m22 =
+      tf_world_to_camera_transform_current_.getBasis().getColumn(2).getZ();
+
+  if (set_camera_pose_) {
+    // Assign the infinitam camera pose the same pose as TF.
+    main_engine_->GetTrackingState()->pose_d->SetT(
+        infinitam_translation_vector_);
+    main_engine_->GetTrackingState()->pose_d->SetR(infinitam_rotation_matrix_);
   }
 }
 
@@ -121,7 +177,7 @@ void RosImageSourceEngine::depthCameraInfoCallback(
 }
 
 void RosImageSourceEngine::getImages(ITMUChar4Image* rgb_image,
-ITMShortImage* raw_depth_image) {
+                                     ITMShortImage* raw_depth_image) {
   // Wait for frames.
   if (!data_available_) {
     return;
@@ -137,8 +193,8 @@ ITMShortImage* raw_depth_image) {
   uint depth_cols = depth_size.width;
   for (size_t i = 0; i < depth_rows * depth_cols; ++i) {
     raw_depth_infinitam[i] =
-    ((cv_depth_image_->image.data[2 * i + 1] << 8) & 0xFF00) |
-    (cv_depth_image_->image.data[2 * i] & 0xFF);
+        ((cv_depth_image_->image.data[2 * i + 1] << 8) & 0xFF00) |
+        (cv_depth_image_->image.data[2 * i] & 0xFF);
   }
 
   // Setup infinitam rgb frame.
@@ -172,33 +228,31 @@ bool RosImageSourceEngine::hasMoreImages(void) {
 Vector2i RosImageSourceEngine::getDepthImageSize(void) {
   return image_size_depth_;
 }
-Vector2i RosImageSourceEngine::getRGBImageSize(void) {
-  return image_size_rgb_;
-}
+Vector2i RosImageSourceEngine::getRGBImageSize(void) { return image_size_rgb_; }
 
 }  // namespace Engine
 }  // namespace InfiniTAM
 #else
 
 namespace InfiniTAM {
-  namespace Engine {
+namespace Engine {
 
-    RosImageSourceEngine::RosImageSourceEngine(const ros::NodeHandle& nh,
-        const char*& calibration_filename)
+RosImageSourceEngine::RosImageSourceEngine(const ros::NodeHandle& nh,
+                                           const char*& calibration_filename)
     : ImageSourceEngine(calibration_filename) {
-      printf("Compiled without ROS support.\n");
-    }
-    RosImageSourceEngine::~RosImageSourceEngine() {}
-    void RosImageSourceEngine::getImages(ITMUChar4Image* rgb_image,
-        ITMShortImage* raw_depth_image) {
-      return;
-    }
-    bool RosImageSourceEngine::hasMoreImages(void) {return false;}
-    Vector2i RosImageSourceEngine::getDepthImageSize(void) {
-      return Vector2i(0, 0);
-    }
-    Vector2i RosImageSourceEngine::getRGBImageSize(void) {return Vector2i(0, 0);}
-  }  // namespace Engine
+  printf("Compiled without ROS support.\n");
+}
+RosImageSourceEngine::~RosImageSourceEngine() {}
+void RosImageSourceEngine::getImages(ITMUChar4Image* rgb_image,
+                                     ITMShortImage* raw_depth_image) {
+  return;
+}
+bool RosImageSourceEngine::hasMoreImages(void) { return false; }
+Vector2i RosImageSourceEngine::getDepthImageSize(void) {
+  return Vector2i(0, 0);
+}
+Vector2i RosImageSourceEngine::getRGBImageSize(void) { return Vector2i(0, 0); }
+}  // namespace Engine
 }  // namespace InfiniTAM
 
 #endif
