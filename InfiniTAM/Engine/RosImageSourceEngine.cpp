@@ -116,45 +116,50 @@ void RosImageSourceEngine::depthCallback(
 
 void RosImageSourceEngine::setCameraPoseFromTF(
     const ros::Time& depth_img_time_stamp) {
-  listener.lookupTransform(camera_frame_id_, world_frame_id_,
-                           depth_img_time_stamp,
-                           tf_world_to_camera_transform_current_);
+  try {
+    listener.lookupTransform(camera_frame_id_, world_frame_id_,
+                             depth_img_time_stamp,
+                             tf_world_to_camera_transform_current_);
 
-  infinitam_translation_vector_.x =
-      tf_world_to_camera_transform_current_.getOrigin().getX();
-  infinitam_translation_vector_.y =
-      tf_world_to_camera_transform_current_.getOrigin().getY();
-  infinitam_translation_vector_.z =
-      tf_world_to_camera_transform_current_.getOrigin().getZ();
+    infinitam_translation_vector_.x =
+        tf_world_to_camera_transform_current_.getOrigin().getX();
+    infinitam_translation_vector_.y =
+        tf_world_to_camera_transform_current_.getOrigin().getY();
+    infinitam_translation_vector_.z =
+        tf_world_to_camera_transform_current_.getOrigin().getZ();
 
-  // Invert the rotation since we use this in the perspective of the camera.
-  tf_world_to_camera_transform_current_.setBasis(
-      tf_world_to_camera_transform_current_.getBasis().inverse());
+    // Invert the rotation since we use this in the perspective of the camera.
+    tf_world_to_camera_transform_current_.setBasis(
+        tf_world_to_camera_transform_current_.getBasis().inverse());
 
-  infinitam_rotation_matrix_.m00 =
-      tf_world_to_camera_transform_current_.getBasis().getColumn(0).getX();
-  infinitam_rotation_matrix_.m10 =
-      tf_world_to_camera_transform_current_.getBasis().getColumn(0).getY();
-  infinitam_rotation_matrix_.m20 =
-      tf_world_to_camera_transform_current_.getBasis().getColumn(0).getZ();
-  infinitam_rotation_matrix_.m01 =
-      tf_world_to_camera_transform_current_.getBasis().getColumn(1).getX();
-  infinitam_rotation_matrix_.m11 =
-      tf_world_to_camera_transform_current_.getBasis().getColumn(1).getY();
-  infinitam_rotation_matrix_.m21 =
-      tf_world_to_camera_transform_current_.getBasis().getColumn(1).getZ();
-  infinitam_rotation_matrix_.m02 =
-      tf_world_to_camera_transform_current_.getBasis().getColumn(2).getX();
-  infinitam_rotation_matrix_.m12 =
-      tf_world_to_camera_transform_current_.getBasis().getColumn(2).getY();
-  infinitam_rotation_matrix_.m22 =
-      tf_world_to_camera_transform_current_.getBasis().getColumn(2).getZ();
+    infinitam_rotation_matrix_.m00 =
+        tf_world_to_camera_transform_current_.getBasis().getColumn(0).getX();
+    infinitam_rotation_matrix_.m10 =
+        tf_world_to_camera_transform_current_.getBasis().getColumn(0).getY();
+    infinitam_rotation_matrix_.m20 =
+        tf_world_to_camera_transform_current_.getBasis().getColumn(0).getZ();
+    infinitam_rotation_matrix_.m01 =
+        tf_world_to_camera_transform_current_.getBasis().getColumn(1).getX();
+    infinitam_rotation_matrix_.m11 =
+        tf_world_to_camera_transform_current_.getBasis().getColumn(1).getY();
+    infinitam_rotation_matrix_.m21 =
+        tf_world_to_camera_transform_current_.getBasis().getColumn(1).getZ();
+    infinitam_rotation_matrix_.m02 =
+        tf_world_to_camera_transform_current_.getBasis().getColumn(2).getX();
+    infinitam_rotation_matrix_.m12 =
+        tf_world_to_camera_transform_current_.getBasis().getColumn(2).getY();
+    infinitam_rotation_matrix_.m22 =
+        tf_world_to_camera_transform_current_.getBasis().getColumn(2).getZ();
 
-  if (set_camera_pose_) {
-    // Assign the infinitam camera pose the same pose as TF.
-    main_engine_->GetTrackingState()->pose_d->SetT(
-        infinitam_translation_vector_);
-    main_engine_->GetTrackingState()->pose_d->SetR(infinitam_rotation_matrix_);
+    if (set_camera_pose_) {
+      // Assign the infinitam camera pose the same pose as TF.
+      main_engine_->GetTrackingState()->pose_d->SetT(
+          infinitam_translation_vector_);
+      main_engine_->GetTrackingState()->pose_d->SetR(
+          infinitam_rotation_matrix_);
+    }
+  } catch (tf::TransformException& ex) {
+    ROS_ERROR("Exception catched: %s", ex.what());
   }
 }
 
