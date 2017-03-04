@@ -222,10 +222,13 @@ bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
 
     // TODO(gocarlos): it would be nice to output the name of the enum here
     // instead of intigers.
-    std::cout << "Using device: " << internal_settings_->deviceType
-              << std::endl;
-    std::cout << "Using tracker: " << internal_settings_->trackerType
-              << std::endl;
+    LOG(INFO) << "Using device: " << internal_settings_->deviceType;
+    LOG(INFO) << "Using tracker: " << internal_settings_->trackerType;
+    LOG(INFO) << "viewFrustum_max: "
+              << internal_settings_->sceneParams.viewFrustum_max;
+    LOG(INFO) << "viewFrustum_min: "
+              << internal_settings_->sceneParams.viewFrustum_min;
+    LOG(INFO) << "voxelSize: " << internal_settings_->sceneParams.voxelSize;
 
     UIEngine::Instance()->Initialise(argc, argv, image_source_, imu_source_,
                                      main_engine_, "./Files/Out",
@@ -242,8 +245,12 @@ bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
 
   // Turn off infinitam.
   if (!request.data) {
+    static_cast<RosPoseSourceEngine*>(pose_source_)->set_camera_pose_ = false;
     UIEngine::Instance()->mainLoopAction = UIEngine::PROCESS_PAUSED;
     UIEngine::Instance()->mainLoopAction = UIEngine::EXIT;
+    // Stop subscribe to messages.
+    tf_sub_.shutdown();
+    response.success = true;
   }
 
   return true;
@@ -475,7 +482,8 @@ void InfinitamNode::readParameters() {
                             0.35f);
   node_handle_.param<float>(
       "viewFrustum_max", internal_settings_->sceneParams.viewFrustum_max, 3.0f);
-
+  node_handle_.param<float>("voxelSize",
+                            internal_settings_->sceneParams.voxelSize, 0.005f);
   int tracker;
   node_handle_.param<int>("trackerType", tracker, 1);
   internal_settings_->trackerType =
