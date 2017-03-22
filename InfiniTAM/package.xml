@@ -2,10 +2,9 @@
 <package format="2">
   <name>infinitam</name>
   <version>0.0.0</version>
-  <description>The model_fitting package</description>
+  <description>The infinitam package</description>
 
   <maintainer email="fadri.furrer@mavt.ethz.ch">Fadri Furrer</maintainer>
-  <maintainer email="gocarlos@mavt.ethz.ch">Carlos Gomes</maintainer>
   <author>Fadri Furrer</author>
   <author>Carlos Gomes</author>
   <license>TODO</license>
