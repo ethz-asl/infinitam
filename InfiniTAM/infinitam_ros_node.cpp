@@ -3,6 +3,10 @@
 #include <glog/logging.h>
 
 #include <cstdlib>
+#include <ctime>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
 #include <string>
 
 #include <pcl/PolygonMesh.h>
@@ -187,7 +191,6 @@ bool InfinitamNode::startInfinitam(std_srvs::SetBool::Request& request,
       else
         break;
     } while (false);
-    printf("after while\n");
 
     if (arg == 1) {
       printf(
@@ -324,8 +327,19 @@ bool InfinitamNode::publishMap(std_srvs::Empty::Request& request,
   ROS_INFO_STREAM("ROS Mesh published.");
 
   if (save_cloud_to_file_system_) {
-    const std::string filename_stl_file =
-        ros::package::getPath("infinitam") + "/scenes/scene_mesh" + ".stl";
+    time_t rawtime;
+    struct tm* timeinfo;
+    char buffer[80];
+
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
+
+    strftime(buffer, sizeof(buffer), "%Y_%m_%d_%I_%M_%S", timeinfo);
+    std::string date_time(buffer);
+
+    const std::string filename_stl_file = ros::package::getPath("infinitam") +
+                                          "/scenes/scene_mesh_" + date_time +
+                                          ".stl";
     main_engine_->GetMesh()->WriteSTL(filename_stl_file.c_str());
   }
 
