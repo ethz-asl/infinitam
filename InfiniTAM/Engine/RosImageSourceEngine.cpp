@@ -47,15 +47,26 @@ RosImageSourceEngine::RosImageSourceEngine(ros::NodeHandle& nh,
   this->calib.disparityCalib.type = ITMDisparityCalib::TRAFO_AFFINE;
   this->calib.disparityCalib.params = Vector2f(1.0f / 1000.0f, 0.0f);
 
+  // TODO(gocarlos): Add here the true parameters.
   this->calib.trafo_rgb_to_depth = ITMExtrinsics();
+
   this->calib.intrinsics_d = this->calib.intrinsics_rgb;
 
-  this->calib.intrinsics_d.SetFrom(depth_info_.K[0], depth_info_.K[4],
-                                   depth_info_.K[2], depth_info_.K[5],
+  this->calib.intrinsics_d.SetFrom(471.8454637022582, 471.6859580771711,
+                                   316.8498891119566, 237.3886368695666,
                                    image_size_depth_.x, image_size_depth_.y);
   this->calib.intrinsics_rgb.SetFrom(rgb_info_.K[0], rgb_info_.K[4],
                                      rgb_info_.K[2], rgb_info_.K[5],
                                      image_size_rgb_.x, image_size_rgb_.y);
+
+  //  this->calib.intrinsics_d.SetFrom(depth_info_.K[0], depth_info_.K[4],
+  //                                   depth_info_.K[2], depth_info_.K[5],
+  //                                   image_size_depth_.x,
+  //                                   image_size_depth_.y);
+  //  this->calib.intrinsics_rgb.SetFrom(rgb_info_.K[0], rgb_info_.K[4],
+  //                                     rgb_info_.K[2], rgb_info_.K[5],
+  //                                     image_size_rgb_.x, image_size_rgb_.y);
+
   ROS_INFO("RGB camera intrinsics: %f, %f, %f, %f, %d, %d", rgb_info_.K[0],
            rgb_info_.K[4], rgb_info_.K[2], rgb_info_.K[5], image_size_rgb_.x,
            image_size_rgb_.y);
@@ -65,8 +76,7 @@ RosImageSourceEngine::RosImageSourceEngine(ros::NodeHandle& nh,
   this->calib.disparityCalib.params = Vector2f(1.0f / 1000.0f, 0.0f);
 }
 
-RosImageSourceEngine::~RosImageSourceEngine() {
-}
+RosImageSourceEngine::~RosImageSourceEngine() {}
 
 void RosImageSourceEngine::rgbCallback(
     const sensor_msgs::Image::ConstPtr& msg) {
@@ -75,8 +85,8 @@ void RosImageSourceEngine::rgbCallback(
     std::lock_guard<std::mutex> guard(rgb_mutex_);
     rgb_ready_ = true;
 
-    cv_rgb_image_ = cv_bridge::toCvCopy(msg,
-                                        sensor_msgs::image_encodings::RGB8);
+    cv_rgb_image_ =
+        cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::RGB8);
   }
 }
 
@@ -88,9 +98,8 @@ void RosImageSourceEngine::depthCallback(
     depth_ready_ = true;
     depth_msg_time_stamp_ = msg->header.stamp;
     main_engine_->setImageTimeStamp(depth_msg_time_stamp_.toSec());
-    CHECK(
-        msg->encoding == sensor_msgs::image_encodings::TYPE_32FC1
-            || msg->encoding == sensor_msgs::image_encodings::TYPE_16UC1);
+    CHECK(msg->encoding == sensor_msgs::image_encodings::TYPE_32FC1 ||
+          msg->encoding == sensor_msgs::image_encodings::TYPE_16UC1);
     cv_depth_image_ = cv_bridge::toCvCopy(msg, msg->encoding);
     // When streaming raw images from Gazebo.
     if (msg->encoding == sensor_msgs::image_encodings::TYPE_32FC1) {
@@ -121,7 +130,7 @@ void RosImageSourceEngine::depthCameraInfoCallback(
 }
 
 void RosImageSourceEngine::getImages(ITMUChar4Image* rgb_image,
-ITMShortImage* raw_depth_image) {
+                                     ITMShortImage* raw_depth_image) {
   // Wait for frames.
   if (!data_available_) {
     return;
@@ -137,8 +146,8 @@ ITMShortImage* raw_depth_image) {
   uint depth_cols = depth_size.width;
   for (size_t i = 0; i < depth_rows * depth_cols; ++i) {
     raw_depth_infinitam[i] =
-    ((cv_depth_image_->image.data[2 * i + 1] << 8) & 0xFF00) |
-    (cv_depth_image_->image.data[2 * i] & 0xFF);
+        ((cv_depth_image_->image.data[2 * i + 1] << 8) & 0xFF00) |
+        (cv_depth_image_->image.data[2 * i] & 0xFF);
   }
 
   // Setup infinitam rgb frame.
@@ -172,33 +181,31 @@ bool RosImageSourceEngine::hasMoreImages(void) {
 Vector2i RosImageSourceEngine::getDepthImageSize(void) {
   return image_size_depth_;
 }
-Vector2i RosImageSourceEngine::getRGBImageSize(void) {
-  return image_size_rgb_;
-}
+Vector2i RosImageSourceEngine::getRGBImageSize(void) { return image_size_rgb_; }
 
 }  // namespace Engine
 }  // namespace InfiniTAM
 #else
 
 namespace InfiniTAM {
-  namespace Engine {
+namespace Engine {
 
-    RosImageSourceEngine::RosImageSourceEngine(const ros::NodeHandle& nh,
-        const char*& calibration_filename)
+RosImageSourceEngine::RosImageSourceEngine(const ros::NodeHandle& nh,
+                                           const char*& calibration_filename)
     : ImageSourceEngine(calibration_filename) {
-      printf("Compiled without ROS support.\n");
-    }
-    RosImageSourceEngine::~RosImageSourceEngine() {}
-    void RosImageSourceEngine::getImages(ITMUChar4Image* rgb_image,
-        ITMShortImage* raw_depth_image) {
-      return;
-    }
-    bool RosImageSourceEngine::hasMoreImages(void) {return false;}
-    Vector2i RosImageSourceEngine::getDepthImageSize(void) {
-      return Vector2i(0, 0);
-    }
-    Vector2i RosImageSourceEngine::getRGBImageSize(void) {return Vector2i(0, 0);}
-  }  // namespace Engine
+  printf("Compiled without ROS support.\n");
+}
+RosImageSourceEngine::~RosImageSourceEngine() {}
+void RosImageSourceEngine::getImages(ITMUChar4Image* rgb_image,
+                                     ITMShortImage* raw_depth_image) {
+  return;
+}
+bool RosImageSourceEngine::hasMoreImages(void) { return false; }
+Vector2i RosImageSourceEngine::getDepthImageSize(void) {
+  return Vector2i(0, 0);
+}
+Vector2i RosImageSourceEngine::getRGBImageSize(void) { return Vector2i(0, 0); }
+}  // namespace Engine
 }  // namespace InfiniTAM
 
 #endif
