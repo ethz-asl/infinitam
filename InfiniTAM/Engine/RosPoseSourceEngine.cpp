@@ -61,10 +61,6 @@ void RosPoseSourceEngine::TFCallback(const tf::tfMessage& tf_msg) {
       tf_world_to_camera_transform_at_start_ =
           tf_world_to_camera_transform_current_;
 
-      // Origin of the map for infinitam.
-      broadcaster.sendTransform(tf::StampedTransform(
-          tf_world_to_camera_transform_at_start_, ros::Time::now(),
-          world_frame_id_, camera_initial_frame_id_));
       ROS_INFO("Got first TF message.");
       first_time_tf_available_ = false;
       broadcast_transformations = true;
