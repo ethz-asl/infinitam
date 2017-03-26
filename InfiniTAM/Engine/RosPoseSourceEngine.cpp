@@ -63,7 +63,7 @@ void RosPoseSourceEngine::TFCallback(const tf::tfMessage& tf_msg) {
 
       ROS_INFO("Got first TF message.");
       first_time_tf_available_ = false;
-      broadcast_transformations = true;
+      broadcast_transformations = false;
     }
 
     infinitam_translation_vector_.x =
